@@ -314,6 +314,40 @@ if ($account) {
     } else {
         Write-Check Warn 'Model quota'  'failed to read cognitiveservices usage (insufficient permissions?) — verify manually before provisioning'
     }
+
+    # Backend-service regional availability checks. These help catch the
+    # "InsufficientResourcesAvailable" failures that cause auto-caphost
+    # creation to fail with misleading "vnet not found" errors. We verify
+    # each service is listed as available in this region. (We can't check
+    # subscription-level capacity headroom from CLI — that's only visible
+    # at provision time.)
+    $foundryServices = @(
+        @{ Name = 'Cosmos DB';   Provider = 'Microsoft.DocumentDB';     ResourceType = 'databaseAccounts' }
+        @{ Name = 'AI Search';   Provider = 'Microsoft.Search';         ResourceType = 'searchServices' }
+        @{ Name = 'Storage';     Provider = 'Microsoft.Storage';        ResourceType = 'storageAccounts' }
+        @{ Name = 'AI Services'; Provider = 'Microsoft.CognitiveServices'; ResourceType = 'accounts' }
+    )
+    foreach ($svc in $foundryServices) {
+        $locsJson = & az provider show --namespace $svc.Provider --query "resourceTypes[?resourceType=='$($svc.ResourceType)'].locations[]" --output json 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $locsJson) {
+            Write-Check Warn ("Region availability: $($svc.Name)") "could not read regions for $($svc.Provider)/$($svc.ResourceType)"
+            continue
+        }
+        $locs = ($locsJson | ConvertFrom-Json) | ForEach-Object { ($_ -replace ' ', '').ToLower() }
+        if ($locs -contains $Location.ToLower()) {
+            Write-Check Pass ("Region availability: $($svc.Name)") "$Location is supported"
+        } else {
+            Write-Check Fail ("Region availability: $($svc.Name)") "$Location is NOT supported by $($svc.Provider)/$($svc.ResourceType). Pick a region where all 4 services are available."
+        }
+    }
+
+    # Best-effort regional capacity hint. Microsoft doesn't expose a CLI
+    # endpoint that says "this region is full for Cosmos DB right now", but
+    # we can flag the most heavily loaded regions so users can avoid them.
+    $crowdedRegions = @('eastus2','eastus','westus','westus2')
+    if ($crowdedRegions -contains $Location.ToLower()) {
+        Write-Check Warn 'Region capacity hint' ("{0} is consistently among the most loaded Foundry regions. If 'azd provision' fails with 'InsufficientResourcesAvailable', switch to westus3 / swedencentral / australiaeast (see docs/TROUBLESHOOTING.md)." -f $Location)
+    }
 }
 
 # ── 5. azd environment + BYO resource checks ────────────────────────────────

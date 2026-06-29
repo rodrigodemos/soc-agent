@@ -55,9 +55,16 @@ See [`docs/architecture.md`](docs/architecture.md) and
    az provider register --namespace Microsoft.OperationalInsights
    az provider register --namespace Microsoft.Insights
    ```
-3. **Quota** for the model SKU in your target region. Defaults: `gpt-5.4`
-   `GlobalStandard` cap 500 — adjust via `AZURE_AI_MODEL_DEPLOYMENT_NAME`,
-   `MODEL_VERSION`, `MODEL_SKU`, `MODEL_CAPACITY` env vars.
+3. **Quota and regional capacity** for the model SKU and the BYO backends.
+   Defaults: `gpt-5.4` `GlobalStandard` cap 500 (adjust via
+   `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `MODEL_VERSION`, `MODEL_SKU`,
+   `MODEL_CAPACITY`).
+   > **Heads-up:** `eastus2` / `eastus` / `westus2` are consistently the most
+   > loaded Foundry regions and frequently return
+   > `InsufficientResourcesAvailable` mid-deploy. `westus3`,
+   > `swedencentral`, and `australiaeast` have more headroom. See
+   > [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) for the full
+   > error-and-remediation list.
 4. Tooling:
    - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) ≥ 2.60
    - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) ≥ 1.10
@@ -308,8 +315,15 @@ azd env set EXISTING_AZURE_STORAGE_ACCOUNT_RESOURCE_ID   "<ARM ID>"
 └── docs/
     ├── architecture.md
     ├── networking.md
+    ├── TROUBLESHOOTING.md
     └── BACKLOG.md
 ```
+
+## Troubleshooting
+
+Common deploy failures (regional capacity, capability-host issues,
+soft-deleted account purge, etc.) and their fixes are documented in
+[`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
 
 ## Cleanup
 

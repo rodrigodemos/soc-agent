@@ -150,7 +150,14 @@ module vnet 'modules/network/network-agent-vnet.bicep' = {
 }
 
 // ── Foundry account + model deployment ──────────────────────────────────────
-
+//
+// The aiAccount module sets networkInjections referencing agentSubnetId, which
+// gives Bicep an implicit dependency on the vnet module. Note: the AML AI
+// Agent Service control plane validates the subnet at account-create time via
+// an out-of-band lookup that has occasional eventual-consistency lag against
+// the freshly created VNet. If that lag triggers a "vnet not found" failure
+// during account create, see docs/TROUBLESHOOTING.md for remediation
+// (retry after purge, or fall back to scripts/createCapHost.sh).
 module aiAccount 'modules/ai/ai-account-identity.bicep' = {
   name: '${accountName}-${uniqueSuffix}-deployment'
   params: {
