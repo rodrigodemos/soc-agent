@@ -29,6 +29,14 @@ hooks:
 
 services:
   # Microsoft Foundry hosted agent (GitHub Copilot SDK via invocations protocol)
+  #
+  # Model deployment values below are intentionally hardcoded (not
+  # substituted from env vars). The `azure.ai.agents` extension parses this
+  # block as typed JSON, and azd's `${VAR=default}` substitution always
+  # produces strings — which fails type-checking on `capacity` (int) and
+  # `version` (typed string). To change the model, edit this block AND keep
+  # `AZURE_AI_MODEL_DEPLOYMENT_NAME` / `MODEL_VERSION` / `MODEL_SKU` /
+  # `MODEL_CAPACITY` env vars in sync (they drive the Bicep deployment).
   copilot-agent:
     project: src/copilot-agent
     host: azure.ai.agent
@@ -42,13 +50,13 @@ services:
           memory: 1Gi
       deployments:
         - model:
-            format: ${MODEL_FORMAT=OpenAI}
-            name: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o-mini}
-            version: ${MODEL_VERSION=2024-07-18}
-          name: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o-mini}
+            format: OpenAI
+            name: gpt-4o-mini
+            version: "2024-07-18"
+          name: gpt-4o-mini
           sku:
-            capacity: ${MODEL_CAPACITY=30}
-            name: ${MODEL_SKU=GlobalStandard}
+            capacity: 30
+            name: GlobalStandard
       startupCommand: python main.py
 
   # Sample MCP HTTP server (Container App on the MCP subnet)
