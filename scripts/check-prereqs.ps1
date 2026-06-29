@@ -327,6 +327,27 @@ if ($azdEnvValues.Count -eq 0) {
     Write-Check Info 'azd env'  ('environment={0}, {1} variables loaded' -f $envName, $azdEnvValues.Count)
 }
 
+# Required azd env vars (auto-set by the preprovision hook if missing)
+$envAzureSub = $azdEnvValues['AZURE_SUBSCRIPTION_ID']
+if ($envAzureSub) {
+    if ($account -and $envAzureSub -ne $account.id) {
+        Write-Check Warn 'AZURE_SUBSCRIPTION_ID'  ("azd env points at $envAzureSub but `az` is signed in to $($account.id) — set the right one with: azd env set AZURE_SUBSCRIPTION_ID <id>")
+    } else {
+        Write-Check Pass 'AZURE_SUBSCRIPTION_ID'  $envAzureSub
+    }
+} elseif ($account) {
+    Write-Check Info 'AZURE_SUBSCRIPTION_ID'  ("not set yet — the preprovision hook will auto-bind to {0} ({1})" -f $account.name, $account.id)
+} else {
+    Write-Check Fail 'AZURE_SUBSCRIPTION_ID'  'not set, and `az` is not signed in — run: az login'
+}
+
+$envAzureLoc = $azdEnvValues['AZURE_LOCATION']
+if ($envAzureLoc) {
+    Write-Check Pass 'AZURE_LOCATION'  $envAzureLoc
+} else {
+    Write-Check Info 'AZURE_LOCATION'  'not set yet — the preprovision hook will prompt at `azd provision` time (default: eastus2)'
+}
+
 function Test-ExistingResource {
     param([string]$EnvVar, [string]$Label)
     $rid = $azdEnvValues[$EnvVar]

@@ -10,6 +10,23 @@ infra:
   provider: bicep
   path: ./infra
 
+# Auto-bind AZURE_SUBSCRIPTION_ID (and prompt for AZURE_LOCATION if missing)
+# from the active Azure CLI context before provisioning. The azure.ai.agents
+# extension requires AZURE_SUBSCRIPTION_ID to be set in the azd env, and this
+# hook spares the user from having to set it manually.
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: ./scripts/preprovision.ps1
+      continueOnError: false
+      interactive: true
+    posix:
+      shell: sh
+      run: ./scripts/preprovision.sh
+      continueOnError: false
+      interactive: true
+
 services:
   # Microsoft Foundry hosted agent (GitHub Copilot SDK via invocations protocol)
   copilot-agent:

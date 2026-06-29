@@ -85,7 +85,18 @@ cd soc-agent
 ```powershell
 azd auth login
 azd init --environment soc-agent-dev          # pick any name you like
-azd env set AZURE_LOCATION eastus2            # any region from the allow-list
+```
+
+That's it. The template's `preprovision` hook automatically:
+
+- Binds **`AZURE_SUBSCRIPTION_ID`** from your active `az` context (`az account show`).
+- Prompts for **`AZURE_LOCATION`** if you haven't set one (defaults to `eastus2`).
+
+You can still pin either ahead of time if you want unattended runs:
+
+```powershell
+azd env set AZURE_SUBSCRIPTION_ID (az account show --query id -o tsv)
+azd env set AZURE_LOCATION eastus2
 ```
 
 Optional — set any of the `EXISTING_*_RESOURCE_ID` variables now if you're [bringing your own VNet](#using-an-existing-vnet-byo) or [backend resources](#using-existing-backend-resources).
