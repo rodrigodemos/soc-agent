@@ -82,19 +82,19 @@ param aiServices string = 'aifoundry'
 param firstProjectName string = 'project'
 
 @description('Model to deploy to the Foundry account.')
-param modelName string = 'gpt-4o-mini'
+param modelName string = 'gpt-5.4'
 
 @description('Model provider.')
 param modelFormat string = 'OpenAI'
 
 @description('Model version.')
-param modelVersion string = '2024-07-18'
+param modelVersion string = '2026-03-05'
 
 @description('Model deployment SKU.')
 param modelSkuName string = 'GlobalStandard'
 
 @description('Tokens-per-minute (TPM) capacity for the model deployment.')
-param modelCapacity int = 30
+param modelCapacity int = 500
 
 // ── Networking — new VNet defaults / BYO overrides ──────────────────────────
 

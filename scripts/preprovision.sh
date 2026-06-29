@@ -122,11 +122,11 @@ current_model="$(azd_env_get AZURE_AI_MODEL_DEPLOYMENT_NAME)"
 if [[ -z "$current_model" ]]; then
   echo ""
   echo "Foundry model deployment (Enter accepts the default in brackets):"
-  model_name="$(read_with_default 'Model name'           'gpt-4o-mini')"
-  model_version="$(read_with_default 'Model version'     '2024-07-18')"
+  model_name="$(read_with_default 'Model name'           'gpt-5.4')"
+  model_version="$(read_with_default 'Model version'     '2026-03-05')"
   model_format="$(read_with_default 'Model format'       'OpenAI')"
   model_sku="$(read_with_default 'Model SKU'             'GlobalStandard')"
-  model_capacity="$(read_with_default 'Model capacity (TPM)' '30')"
+  model_capacity="$(read_with_default 'Model capacity (TPM)' '500')"
 
   if ! [[ "$model_capacity" =~ ^[0-9]+$ ]]; then
     echo "ERROR: Model capacity must be an integer (got: '$model_capacity')." >&2

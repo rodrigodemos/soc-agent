@@ -55,8 +55,8 @@ See [`docs/architecture.md`](docs/architecture.md) and
    az provider register --namespace Microsoft.OperationalInsights
    az provider register --namespace Microsoft.Insights
    ```
-3. **Quota** for the model SKU in your target region. Defaults: `gpt-4o-mini`
-   `GlobalStandard` cap 30 — adjust via `AZURE_AI_MODEL_DEPLOYMENT_NAME`,
+3. **Quota** for the model SKU in your target region. Defaults: `gpt-5.4`
+   `GlobalStandard` cap 500 — adjust via `AZURE_AI_MODEL_DEPLOYMENT_NAME`,
    `MODEL_VERSION`, `MODEL_SKU`, `MODEL_CAPACITY` env vars.
 4. Tooling:
    - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) ≥ 2.60
@@ -91,17 +91,17 @@ That's it. The template's `preprovision` hook will prompt you interactively at `
 
 - **Azure subscription** — a numbered picker from `az account list`. Default is whichever subscription `az` is currently signed in to.
 - **Azure region** — a numbered picker scoped to the regions allowed by `infra/main.bicep`. Default is `eastus2`.
-- **Foundry model** — name (default `gpt-4o-mini`), version, format, SKU, capacity (TPM). The hook writes your choices into both the azd env (for Bicep) and into the `deployments:` block of `azure.yaml` between the `SOC_AGENT_MODEL_DEPLOYMENT` markers (for the `azure.ai.agents` extension, which needs literal typed values).
+- **Foundry model** — name (default `gpt-5.4`), version, format, SKU, capacity (TPM). The hook writes your choices into both the azd env (for Bicep) and into the `deployments:` block of `azure.yaml` between the `SOC_AGENT_MODEL_DEPLOYMENT` markers (for the `azure.ai.agents` extension, which needs literal typed values).
 
 If you want unattended runs, set the env vars ahead of time and the hook will skip the prompts:
 
 ```powershell
 azd env set AZURE_SUBSCRIPTION_ID (az account show --query id -o tsv)
 azd env set AZURE_LOCATION eastus2
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-4o-mini
-azd env set MODEL_VERSION 2024-07-18
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
+azd env set MODEL_VERSION 2026-03-05
 azd env set MODEL_SKU GlobalStandard
-azd env set MODEL_CAPACITY 30
+azd env set MODEL_CAPACITY 500
 ```
 
 To re-prompt later (e.g., switching model), clear the relevant var and re-run `azd provision`:

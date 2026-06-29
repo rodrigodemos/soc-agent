@@ -52,11 +52,11 @@ services:
         # >>> SOC_AGENT_MODEL_DEPLOYMENT — managed by scripts/preprovision >>>
         - model:
             format: OpenAI
-            name: gpt-4o-mini
-            version: "2024-07-18"
-          name: gpt-4o-mini
+            name: gpt-5.4
+            version: "2026-03-05"
+          name: gpt-5.4
           sku:
-            capacity: 30
+            capacity: 500
             name: GlobalStandard
         # <<< SOC_AGENT_MODEL_DEPLOYMENT <<<
       startupCommand: python main.py

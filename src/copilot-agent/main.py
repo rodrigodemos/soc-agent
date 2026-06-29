@@ -10,7 +10,7 @@ targets a private-network deployment that blocks egress to ``github.com``.
 Required environment variables (auto-injected when deployed as a hosted agent):
     FOUNDRY_PROJECT_ENDPOINT       Project-level OpenAI endpoint
                                    (e.g. https://<account>.services.ai.azure.com/api/projects/<project>)
-    AZURE_AI_MODEL_DEPLOYMENT_NAME Name of the model deployment (e.g. gpt-4o-mini)
+    AZURE_AI_MODEL_DEPLOYMENT_NAME Name of the model deployment (e.g. gpt-5.4)
 """
 
 import asyncio

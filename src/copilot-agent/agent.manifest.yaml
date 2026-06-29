@@ -31,5 +31,5 @@ parameters:
   properties: []
 resources:
   - kind: model
-    id: gpt-4o-mini
+    id: gpt-5.4
     name: AZURE_AI_MODEL_DEPLOYMENT_NAME

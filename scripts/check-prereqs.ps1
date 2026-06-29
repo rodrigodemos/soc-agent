@@ -17,13 +17,13 @@
 
 .PARAMETER ModelName
     Foundry model deployment to check quota for.
-    Defaults to AZURE_AI_MODEL_DEPLOYMENT_NAME or `gpt-4o-mini`.
+    Defaults to AZURE_AI_MODEL_DEPLOYMENT_NAME or `gpt-5.4`.
 
 .PARAMETER ModelSku
     Model SKU. Defaults to MODEL_SKU or `GlobalStandard`.
 
 .PARAMETER ModelCapacity
-    Required model deployment capacity (TPM). Defaults to MODEL_CAPACITY or `30`.
+    Required model deployment capacity (TPM). Defaults to MODEL_CAPACITY or `500`.
 
 .PARAMETER RegisterProviders
     Register any missing resource providers automatically.
@@ -112,9 +112,9 @@ if (Test-Command azd) {
 }
 
 if (-not $Location)      { $Location      = if ($azdEnvValues['AZURE_LOCATION'])      { $azdEnvValues['AZURE_LOCATION'] }      else { 'eastus2' } }
-if (-not $ModelName)     { $ModelName     = if ($azdEnvValues['AZURE_AI_MODEL_DEPLOYMENT_NAME']) { $azdEnvValues['AZURE_AI_MODEL_DEPLOYMENT_NAME'] } else { 'gpt-4o-mini' } }
+if (-not $ModelName)     { $ModelName     = if ($azdEnvValues['AZURE_AI_MODEL_DEPLOYMENT_NAME']) { $azdEnvValues['AZURE_AI_MODEL_DEPLOYMENT_NAME'] } else { 'gpt-5.4' } }
 if (-not $ModelSku)      { $ModelSku      = if ($azdEnvValues['MODEL_SKU'])           { $azdEnvValues['MODEL_SKU'] }           else { 'GlobalStandard' } }
-if (-not $ModelCapacity) { $ModelCapacity = if ($azdEnvValues['MODEL_CAPACITY'])      { [int]$azdEnvValues['MODEL_CAPACITY'] } else { 30 } }
+if (-not $ModelCapacity) { $ModelCapacity = if ($azdEnvValues['MODEL_CAPACITY'])      { [int]$azdEnvValues['MODEL_CAPACITY'] } else { 500 } }
 
 Write-Host ''
 Write-Host -ForegroundColor White 'soc-agent — preflight checks'
@@ -296,7 +296,7 @@ if ($account) {
     $usageJson = & az cognitiveservices usage list --location $Location --output json 2>$null
     if ($LASTEXITCODE -eq 0 -and $usageJson) {
         $usages = $usageJson | ConvertFrom-Json
-        # SKU name shape: e.g., "OpenAI.GlobalStandard.gpt-4o-mini"
+        # SKU name shape: e.g., "OpenAI.GlobalStandard.gpt-5.4"
         $skuName = "OpenAI.$ModelSku.$ModelName"
         $match = $usages | Where-Object { $_.name.value -eq $skuName }
         if ($match) {

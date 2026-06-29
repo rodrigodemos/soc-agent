@@ -174,11 +174,11 @@ if ([string]::IsNullOrWhiteSpace($envMap['AZURE_AI_MODEL_DEPLOYMENT_NAME'])) {
     Write-Host ''
     Write-Host -ForegroundColor Cyan 'Foundry model deployment (Enter accepts the default in brackets):'
 
-    $modelName     = Read-WithDefault 'Model name'      'gpt-4o-mini'
-    $modelVersion  = Read-WithDefault 'Model version'   '2024-07-18'
+    $modelName     = Read-WithDefault 'Model name'      'gpt-5.4'
+    $modelVersion  = Read-WithDefault 'Model version'   '2026-03-05'
     $modelFormat   = Read-WithDefault 'Model format'    'OpenAI'
     $modelSku      = Read-WithDefault 'Model SKU'       'GlobalStandard'
-    $capacityStr   = Read-WithDefault 'Model capacity (TPM)' '30'
+    $capacityStr   = Read-WithDefault 'Model capacity (TPM)' '500'
     if (-not [int]::TryParse($capacityStr, [ref]$null)) {
         Write-Error "Model capacity must be an integer (got: '$capacityStr')."
         exit 1
