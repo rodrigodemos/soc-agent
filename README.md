@@ -87,16 +87,28 @@ azd auth login
 azd init --environment soc-agent-dev          # pick any name you like
 ```
 
-That's it. The template's `preprovision` hook automatically:
+That's it. The template's `preprovision` hook will prompt you interactively at `azd provision` / `azd up` time to choose:
 
-- Binds **`AZURE_SUBSCRIPTION_ID`** from your active `az` context (`az account show`).
-- Prompts for **`AZURE_LOCATION`** if you haven't set one (defaults to `eastus2`).
+- **Azure subscription** — a numbered picker from `az account list`. Default is whichever subscription `az` is currently signed in to.
+- **Azure region** — a numbered picker scoped to the regions allowed by `infra/main.bicep`. Default is `eastus2`.
+- **Foundry model** — name (default `gpt-4o-mini`), version, format, SKU, capacity (TPM). The hook writes your choices into both the azd env (for Bicep) and into the `deployments:` block of `azure.yaml` between the `SOC_AGENT_MODEL_DEPLOYMENT` markers (for the `azure.ai.agents` extension, which needs literal typed values).
 
-You can still pin either ahead of time if you want unattended runs:
+If you want unattended runs, set the env vars ahead of time and the hook will skip the prompts:
 
 ```powershell
 azd env set AZURE_SUBSCRIPTION_ID (az account show --query id -o tsv)
 azd env set AZURE_LOCATION eastus2
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-4o-mini
+azd env set MODEL_VERSION 2024-07-18
+azd env set MODEL_SKU GlobalStandard
+azd env set MODEL_CAPACITY 30
+```
+
+To re-prompt later (e.g., switching model), clear the relevant var and re-run `azd provision`:
+
+```powershell
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME ""   # hook will re-prompt
+azd provision
 ```
 
 Optional — set any of the `EXISTING_*_RESOURCE_ID` variables now if you're [bringing your own VNet](#using-an-existing-vnet-byo) or [backend resources](#using-existing-backend-resources).
