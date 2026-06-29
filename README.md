@@ -61,33 +61,81 @@ See [`docs/architecture.md`](docs/architecture.md) and
 4. Tooling:
    - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) ≥ 2.60
    - [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) ≥ 1.10
-   - Docker (only needed locally if `azd` cannot remote-build)
+   - Docker — required on the host that runs `azd deploy` (the MCP HTTP
+     server image is built locally). Not needed on a host that only runs
+     `azd provision`.
+5. **Where you run `azd deploy` from** — see [Deployment paths](#deployment-paths) below. Either:
+   - **In-VNet host** (recommended) — a VM inside the VNet, or one in a peered
+     VNet linked to the `privatelink.azurecr.io` private DNS zone, **or**
+   - **Any laptop, with a one-off ACR IP allowlist** for that workstation.
 
-## Quickstart
+## Deployment paths
+
+Because the Azure Container Registry is provisioned with **public network access disabled**, the `docker push` step in `azd deploy` only succeeds from a host that can reach the ACR private endpoint. The provision step is unaffected — Azure Resource Manager is always public.
+
+That gives you two supported workflows:
+
+### Path A — Split: `azd provision` from anywhere, `azd deploy` from in-VNet
+
+Use this when you're bootstrapping from a laptop or a build PC that lives outside the target VNet.
 
 ```powershell
-# from this repo root
+# ── Step 1 — From your laptop (anywhere) ─────────────────────────────────
 azd auth login
 azd init --environment soc-agent-dev
-
-# When you're on a workstation outside the VNet, set DEVELOPER_IP_CIDR so the
-# ACR firewall lets you push images. Use your public IP / range (/32 is fine).
-azd env set DEVELOPER_IP_CIDR "$(curl -s https://api.ipify.org)/32"
 azd env set AZURE_LOCATION eastus2
+azd provision                  # creates VNet, Foundry, private endpoints, ACR, etc.
+```
 
-# Provision + deploy
+```bash
+# ── Step 2 — From a VM / Bastion host inside the VNet (or a peered VNet) ─
+git clone <this-repo>
+cd soc-agent
+azd auth login                 # or: az login --identity (VM SMI granted AcrPush)
+azd env refresh --environment soc-agent-dev   # pulls the env values from Azure
+azd deploy                     # builds + pushes images, updates the agent + ACA app
+```
+
+What the in-VNet host needs:
+- DNS for `<acr>.azurecr.io` resolves to the **private IP** in the PE subnet
+  (true automatically if the VM is in the same VNet; if it's in a peered VNet,
+  link the `privatelink.azurecr.io` private DNS zone there too).
+- An identity with `AcrPush` on the registry (interactive `az login` user,
+  managed identity, or a service principal).
+- `azd`, `az`, and Docker installed.
+
+### Path B — Single shot: `azd up` from in-VNet
+
+If your dev environment is already a VM inside the VNet (e.g., a Bastion-accessible jump box you keep around for SOC work), just run `azd up` from there and it handles both provision and deploy in one go:
+
+```bash
+# From the in-VNet VM
+azd auth login
+azd init --environment soc-agent-dev
+azd env set AZURE_LOCATION eastus2
 azd up
 ```
 
-After `azd up` completes:
+### After deployment (either path)
 
-- The Foundry **portal** is reachable from a VPN/ExpressRoute/Bastion host that
-  can resolve `privatelink.services.ai.azure.com` against the private endpoint.
-  From the public internet, the Foundry account is **not reachable**.
+- The Foundry **portal** is reachable from a VPN / ExpressRoute / Bastion host
+  that can resolve `privatelink.services.ai.azure.com` against the private
+  endpoint. From the public internet, the Foundry account is **not reachable**.
 - The Copilot-SDK hosted agent is callable from the **Foundry Playground** in
   your project. It runs as a Container App on the Agent subnet.
-- The sample MCP HTTP server is reachable **inside the VNet** on
+- The sample MCP HTTP server is reachable **inside the VNet** at
   `MCP_HTTP_SERVER_FQDN:80` (see `azd env get-values`).
+
+### Alternative: dev-only IP allowlist on ACR
+
+For one-off dev or demos where standing up an in-VNet build host is overkill, you can temporarily open the ACR firewall to your workstation's public IP. Set `DEVELOPER_IP_CIDR` **before** `azd provision` and `azd deploy` will be able to push from your laptop:
+
+```powershell
+azd env set DEVELOPER_IP_CIDR "$(curl -s https://api.ipify.org)/32"
+azd up
+```
+
+When set, `infra/modules/registry/container-registry.bicep` flips ACR to `publicNetworkAccess: Enabled` with a **default-deny firewall plus a single allow rule for that CIDR**. Don't use this in production — clear it (`azd env set DEVELOPER_IP_CIDR ""` then `azd provision`) when you're done. See [`docs/networking.md`](docs/networking.md) for the trade-offs and notes on ACR Tasks with private registries.
 
 ### Switching between private and public Foundry access
 

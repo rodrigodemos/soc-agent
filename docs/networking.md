@@ -70,18 +70,77 @@ The Copilot SDK in `src/copilot-agent` does **not** reach out to `github.com`
 in this template (the `GITHUB_TOKEN` code path has been removed) — it only
 talks to the Foundry project endpoint over the VNet's data proxy.
 
-## ACR push from a developer workstation
+## Pushing images to the private ACR
 
-When you run `azd deploy` from a workstation outside the VNet, the developer
-machine needs to push images to the private ACR. The template supports this
-via a per-environment IP allowlist:
+`azd deploy` builds the agent and MCP-server Docker images and pushes them to
+the private ACR. Because ACR is created with `publicNetworkAccess: Disabled`,
+the push only succeeds from a host that can reach the ACR private endpoint.
+
+### Recommended: run `azd deploy` from inside the VNet
+
+A small Linux VM (or Bastion-accessible Windows jump host) inside the VNet —
+or inside a VNet peered to it with the `privatelink.azurecr.io` private DNS
+zone linked — is the cleanest and most production-friendly path.
+
+Requirements on the in-VNet host:
+
+- DNS for `<acr>.azurecr.io` resolves to the **private** IP from the PE subnet.
+  Verify with `nslookup <acr>.azurecr.io`.
+- An identity with `AcrPush` on the registry. Three common shapes:
+  - Interactive `az login` as a user with `AcrPush`.
+  - VM system-assigned managed identity granted `AcrPush`, then
+    `az login --identity`.
+  - Service principal credentials.
+- `azd`, `az`, and Docker installed.
+
+Two flows are supported:
+
+| Flow | Where you run what | When to use |
+|---|---|---|
+| **Split** | `azd provision` from anywhere, then `azd deploy` from the in-VNet host (after `azd env refresh`). | Bootstrapping from a laptop, then handing off image builds to a build VM / CI runner. |
+| **Single shot** | `azd up` from the in-VNet host. | Your dev environment already lives inside the VNet. |
+
+### Alternative: dev-only IP allowlist on ACR
+
+Setting `DEVELOPER_IP_CIDR` flips ACR to `publicNetworkAccess: Enabled` with a
+**default-deny firewall and a single allow rule** for that CIDR. Pushes from
+that IP succeed; everything else is still blocked.
 
 ```powershell
 azd env set DEVELOPER_IP_CIDR "$(curl -s https://api.ipify.org)/32"
-azd provision    # re-applies the ACR network ACL
+azd provision    # re-applies the ACR network ACL with the allowlist
 azd deploy
 ```
 
-When `DEVELOPER_IP_CIDR` is empty (production), ACR `publicNetworkAccess` is
-`Disabled` and pushes must go over the VNet (e.g., via Bastion or a self-hosted
-agent inside the VNet).
+Use this for one-off dev or demos only. Clear it when done:
+
+```powershell
+azd env set DEVELOPER_IP_CIDR ""
+azd provision
+```
+
+Caveats:
+- Your public IP rotates on roaming networks (cellular, café Wi-Fi, some
+  corporate VPNs) — you'll need to re-set the CIDR and re-provision.
+- Behind a corporate NAT you may need a wider CIDR (e.g. `/26`); coordinate
+  with networking.
+- Don't use this in production — it widens the attack surface.
+
+### What about ACR Tasks (server-side builds)?
+
+Adding `docker.remoteBuild: true` to the `mcp-http-server` service in
+`azure.yaml` would tell `azd` to use ACR Tasks instead of local Docker.
+**However**, classic ACR Tasks build agents run on Microsoft-managed shared
+infrastructure that lives **outside your VNet** and cannot push to an ACR
+with `publicNetworkAccess: Disabled`. To make ACR Tasks work with a private
+registry you'd need a **dedicated agent pool inside the VNet**
+(`az acr agentpool create --subnet ...`) and wire `--agent-pool` into the
+build call via an `azd` hook. This is intentionally not part of the starter
+template — adopt it later if you need fully server-side builds.
+
+> The `copilot-agent` service is different: it uses
+> `host: azure.ai.agent` + `docker.remoteBuild: true`, which means the
+> Foundry platform itself builds the image inside Azure infrastructure that
+> has direct connectivity to the project's ACR. That service deploys fine
+> from outside the VNet — only the `mcp-http-server` service needs an
+> in-VNet (or allowlisted) push path.
