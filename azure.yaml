@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: soc-agent
+
+requiredVersions:
+  extensions:
+    azure.ai.agents: '>=0.1.0-preview'
+
+infra:
+  provider: bicep
+  path: ./infra
+
+services:
+  # Microsoft Foundry hosted agent (GitHub Copilot SDK via invocations protocol)
+  copilot-agent:
+    project: src/copilot-agent
+    host: azure.ai.agent
+    language: docker
+    docker:
+      remoteBuild: true
+    config:
+      container:
+        resources:
+          cpu: "0.5"
+          memory: 1Gi
+      deployments:
+        - model:
+            format: ${MODEL_FORMAT=OpenAI}
+            name: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o-mini}
+            version: ${MODEL_VERSION=2024-07-18}
+          name: ${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o-mini}
+          sku:
+            capacity: ${MODEL_CAPACITY=30}
+            name: ${MODEL_SKU=GlobalStandard}
+      startupCommand: python main.py
+
+  # Sample MCP HTTP server (Container App on the MCP subnet)
+  mcp-http-server:
+    project: src/mcp-http-server
+    host: containerapp
+    language: docker

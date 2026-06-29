@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/ContainerAgent.yaml
+
+kind: hosted
+name: soc-copilot-agent
+description: |
+    A SOC triage assistant built on the GitHub Copilot SDK (CopilotClient) and
+    deployed as a Microsoft Foundry hosted agent over the
+    azure-ai-agentserver-invocations protocol. Streams raw session events as
+    Server-Sent Events. Uses a Foundry BYOK model via Managed Identity (no
+    secrets, no GitHub token).
+metadata:
+    tags:
+        - SOC
+        - AI Agent Hosting
+        - GitHub Copilot SDK
+        - Invocations Protocol
+        - Streaming
+        - Private Network
+protocols:
+    - protocol: invocations
+      version: 1.0.0
+resources:
+    cpu: "0.5"
+    memory: 1Gi
+environment_variables:
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}

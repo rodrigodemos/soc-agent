@@ -1,0 +1,104 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "environmentName": {
+            "value": "${AZURE_ENV_NAME}"
+        },
+        "location": {
+            "value": "${AZURE_LOCATION}"
+        },
+        "resourceGroupName": {
+            "value": "${AZURE_RESOURCE_GROUP=rg-${AZURE_ENV_NAME}}"
+        },
+        "principalId": {
+            "value": "${AZURE_PRINCIPAL_ID=}"
+        },
+        "principalType": {
+            "value": "${AZURE_PRINCIPAL_TYPE=User}"
+        },
+
+        "aiServices": {
+            "value": "${AZURE_AI_SERVICES_PREFIX=aifoundry}"
+        },
+        "firstProjectName": {
+            "value": "${AZURE_AI_PROJECT_PREFIX=socproject}"
+        },
+        "modelName": {
+            "value": "${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-4o-mini}"
+        },
+        "modelFormat": {
+            "value": "${MODEL_FORMAT=OpenAI}"
+        },
+        "modelVersion": {
+            "value": "${MODEL_VERSION=2024-07-18}"
+        },
+        "modelSkuName": {
+            "value": "${MODEL_SKU=GlobalStandard}"
+        },
+        "modelCapacity": {
+            "value": "${MODEL_CAPACITY=30}"
+        },
+
+        "vnetName": {
+            "value": "${AZURE_VNET_NAME=agent-vnet}"
+        },
+        "agentSubnetName": {
+            "value": "${AZURE_AGENT_SUBNET_NAME=agent-subnet}"
+        },
+        "peSubnetName": {
+            "value": "${AZURE_PE_SUBNET_NAME=pe-subnet}"
+        },
+        "mcpSubnetName": {
+            "value": "${AZURE_MCP_SUBNET_NAME=mcp-subnet}"
+        },
+        "vnetAddressPrefix": {
+            "value": "${AZURE_VNET_ADDRESS_PREFIX=}"
+        },
+        "agentSubnetPrefix": {
+            "value": "${AZURE_AGENT_SUBNET_PREFIX=}"
+        },
+        "peSubnetPrefix": {
+            "value": "${AZURE_PE_SUBNET_PREFIX=}"
+        },
+        "mcpSubnetPrefix": {
+            "value": "${AZURE_MCP_SUBNET_PREFIX=}"
+        },
+        "existingVnetResourceId": {
+            "value": "${EXISTING_VNET_RESOURCE_ID=}"
+        },
+        "existingAgentSubnetResourceId": {
+            "value": "${EXISTING_AGENT_SUBNET_RESOURCE_ID=}"
+        },
+        "existingPeSubnetResourceId": {
+            "value": "${EXISTING_PE_SUBNET_RESOURCE_ID=}"
+        },
+        "existingMcpSubnetResourceId": {
+            "value": "${EXISTING_MCP_SUBNET_RESOURCE_ID=}"
+        },
+
+        "existingAiSearchResourceId": {
+            "value": "${EXISTING_AI_SEARCH_RESOURCE_ID=}"
+        },
+        "existingAzureStorageAccountResourceId": {
+            "value": "${EXISTING_AZURE_STORAGE_ACCOUNT_RESOURCE_ID=}"
+        },
+        "existingAzureCosmosDBAccountResourceId": {
+            "value": "${EXISTING_AZURE_COSMOS_DB_ACCOUNT_RESOURCE_ID=}"
+        },
+
+        "enableContainerRegistry": {
+            "value": "${ENABLE_CONTAINER_REGISTRY=true}"
+        },
+        "developerIpCidr": {
+            "value": "${DEVELOPER_IP_CIDR=}"
+        },
+
+        "enableMcpHttpServer": {
+            "value": "${ENABLE_MCP_HTTP_SERVER=true}"
+        },
+        "mcpHttpServerImageTag": {
+            "value": "${MCP_HTTP_SERVER_IMAGE_TAG=latest}"
+        }
+    }
+}

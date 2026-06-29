@@ -1,0 +1,43 @@
+# azd state and per-environment files (env vars, etc. — never commit)
+.azure/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets / per-developer config (kept locally — see file-management
+# convention for this user; we intentionally do not delete these locally,
+# only keep them out of source control).
+.env
+*.env.local
+src/**/.env
+
+# Build / temp
+*.log
+*.tmp
+*.bak
+node_modules/
+dist/
+build/
+*.tfstate
+*.tfstate.backup
+
+# IDE
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

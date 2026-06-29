@@ -1,0 +1,11 @@
+# Files to exclude from `azd` deployment packaging
+.git/
+.venv/
+__pycache__/
+*.pyc
+.azure/
+docs/
+scripts/
+*.md
+.env
+.env.local

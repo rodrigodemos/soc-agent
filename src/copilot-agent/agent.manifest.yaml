@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/microsoft/AgentSchema/refs/heads/main/schemas/v1.0/AgentManifest.yaml
+name: soc-copilot-agent
+displayName: "SOC Copilot Agent"
+description: >
+  A SOC triage assistant built on the GitHub Copilot SDK and deployed as a
+  Microsoft Foundry hosted agent on a private network. Uses a Foundry BYOK
+  model via Managed Identity. Streams session events as SSE over the
+  azure-ai-agentserver-invocations protocol.
+metadata:
+  tags:
+    - SOC
+    - AI Agent Hosting
+    - GitHub Copilot SDK
+    - Invocations Protocol
+    - Streaming
+    - Private Network
+template:
+  name: soc-copilot-agent
+  kind: hosted
+  protocols:
+    - protocol: invocations
+      version: 1.0.0
+  resources:
+    cpu: "0.5"
+    memory: 1Gi
+  environment_variables:
+    # FOUNDRY_PROJECT_ENDPOINT is auto-injected by the platform — do not set it here.
+    - name: AZURE_AI_MODEL_DEPLOYMENT_NAME
+      value: ${AZURE_AI_MODEL_DEPLOYMENT_NAME}
+parameters:
+  properties: []
+resources:
+  - kind: model
+    id: gpt-4o-mini
+    name: AZURE_AI_MODEL_DEPLOYMENT_NAME
