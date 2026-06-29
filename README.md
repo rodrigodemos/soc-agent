@@ -69,6 +69,87 @@ See [`docs/architecture.md`](docs/architecture.md) and
      VNet linked to the `privatelink.azurecr.io` private DNS zone, **or**
    - **Any laptop, with a one-off ACR IP allowlist** for that workstation.
 
+## Getting started
+
+End-to-end happy path. Steps 1–3 run from anywhere (your laptop); step 4 depends on which [deployment path](#deployment-paths) you pick.
+
+### 1. Clone and open the repo
+
+```powershell
+git clone <this-repo> soc-agent
+cd soc-agent
+```
+
+### 2. Initialize the azd environment
+
+```powershell
+azd auth login
+azd init --environment soc-agent-dev          # pick any name you like
+azd env set AZURE_LOCATION eastus2            # any region from the allow-list
+```
+
+Optional — set any of the `EXISTING_*_RESOURCE_ID` variables now if you're [bringing your own VNet](#using-an-existing-vnet-byo) or [backend resources](#using-existing-backend-resources).
+
+### 3. Validate prerequisites
+
+Run the preflight script. It checks tooling versions, your Azure login, required resource-provider registrations, model quota in the target region, and (if configured) that any BYO resources actually exist and the agent subnet is correctly delegated.
+
+```powershell
+.\scripts\check-prereqs.ps1
+```
+
+If anything fails, fix it and re-run. Common one-time fix:
+
+```powershell
+.\scripts\check-prereqs.ps1 -RegisterProviders   # registers any missing RPs
+```
+
+A clean run ends with `Passed: NN, Warnings: 0, Failures: 0`.
+
+### 4. Provision and deploy
+
+Pick the path that matches your environment:
+
+**Path A — `azd up` from an in-VNet host** (single shot, recommended for repeat dev work)
+
+```bash
+# From a VM inside the VNet (or in a peered VNet with the privatelink DNS zone linked)
+azd up
+```
+
+**Path B — Split (`azd provision` anywhere, `azd deploy` from in-VNet)** (bootstrapping from a laptop)
+
+```powershell
+# Step 1 — from your laptop
+azd provision
+```
+
+```bash
+# Step 2 — SSH / Bastion into the in-VNet host, clone the repo there, then:
+cd soc-agent
+azd auth login                                # or: az login --identity
+azd env refresh --environment soc-agent-dev   # pulls env values from Azure
+azd deploy
+```
+
+Either path takes ~25–35 minutes (most of it Foundry / capability-host provisioning on the first run).
+
+### 5. Verify
+
+```powershell
+azd env get-values | Select-String 'FOUNDRY_PROJECT_ENDPOINT|AZURE_AI_PROJECT_NAME|MCP_HTTP_SERVER_FQDN'
+```
+
+From a VPN / Bastion host that can reach the private endpoints:
+
+- Open the **Foundry portal** → your subscription → the new account+project → **Agents** → invoke `soc-copilot-agent` from the Playground.
+- (Optional) From an in-VNet host, hit the MCP server health check:
+  ```bash
+  curl http://<MCP_HTTP_SERVER_FQDN>/mcp -H 'Accept: text/event-stream'
+  ```
+
+You're up. From here, swap in your own MCP tools, customize the agent system prompt in `src/copilot-agent/main.py`, and work through the items in [`docs/BACKLOG.md`](docs/BACKLOG.md).
+
 ## Deployment paths
 
 Because the Azure Container Registry is provisioned with **public network access disabled**, the `docker push` step in `azd deploy` only succeeds from a host that can reach the ACR private endpoint. The provision step is unaffected — Azure Resource Manager is always public.
