@@ -24,6 +24,26 @@
         "firstProjectName": {
             "value": "${AZURE_AI_PROJECT_PREFIX=socproject}"
         },
+
+        "aiAccountName": {
+            "value": "${AZURE_AI_ACCOUNT_NAME=}"
+        },
+        "aiProjectName": {
+            "value": "${AZURE_AI_PROJECT_NAME=}"
+        },
+        "cosmosDbName": {
+            "value": "${AZURE_COSMOS_DB_NAME=}"
+        },
+        "aiSearchName": {
+            "value": "${AZURE_AI_SEARCH_NAME=}"
+        },
+        "storageAccountName": {
+            "value": "${AZURE_STORAGE_NAME=}"
+        },
+        "acrName": {
+            "value": "${AZURE_ACR_NAME=}"
+        },
+
         "modelName": {
             "value": "${AZURE_AI_MODEL_DEPLOYMENT_NAME=gpt-5.4}"
         },

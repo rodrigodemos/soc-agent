@@ -168,7 +168,61 @@ if ([string]::IsNullOrWhiteSpace($envMap['AZURE_LOCATION'])) {
     Write-Host -ForegroundColor DarkGray ("AZURE_LOCATION already set: {0}" -f $envMap['AZURE_LOCATION'])
 }
 
-# ── 3. Foundry model deployment ─────────────────────────────────────────────
+# ── 3. Resource naming ──────────────────────────────────────────────────────
+#
+# A single AZURE_NAME_PREFIX drives the default name of every resource. Each
+# resource also has its own env var the user can override individually. The
+# hook resolves all of them up front so Bicep sees deterministic names via
+# main.parameters.json.
+
+function Get-SanitizedPrefix {
+    param([string]$Prefix)
+    # Storage / ACR allow lowercase alphanumeric only.
+    $clean = ($Prefix -replace '[^A-Za-z0-9]', '').ToLower()
+    if ($clean.Length -gt 16) { $clean = $clean.Substring(0, 16) }
+    return $clean
+}
+
+if ([string]::IsNullOrWhiteSpace($envMap['AZURE_NAME_PREFIX'])) {
+    Write-Host ''
+    Write-Host -ForegroundColor Cyan 'Resource naming'
+    Write-Host -ForegroundColor DarkGray '(Used as the default base name for every resource.)'
+
+    $defaultPrefix = if ($envMap['AZURE_ENV_NAME']) { $envMap['AZURE_ENV_NAME'] } else { 'soc-agent' }
+    $namePrefix = Read-WithDefault 'Name prefix' $defaultPrefix
+    $namePrefix = $namePrefix.TrimEnd('-')
+    & azd env set AZURE_NAME_PREFIX $namePrefix | Out-Null
+
+    $sanitized = Get-SanitizedPrefix $namePrefix
+
+    $derived = @{
+        AZURE_RESOURCE_GROUP    = "rg-$namePrefix"
+        AZURE_VNET_NAME         = "$namePrefix-vnet"
+        AZURE_AI_ACCOUNT_NAME   = "$namePrefix-foundry"
+        AZURE_AI_PROJECT_NAME   = "$namePrefix-project"
+        AZURE_COSMOS_DB_NAME    = "$namePrefix-cosmos"
+        AZURE_AI_SEARCH_NAME    = "$namePrefix-search"
+        AZURE_STORAGE_NAME      = "${sanitized}stor"
+        AZURE_ACR_NAME          = "${sanitized}acr"
+    }
+
+    Write-Host ''
+    Write-Host -ForegroundColor Cyan 'Derived resource names (Enter accepts; type to override):'
+    foreach ($key in @('AZURE_RESOURCE_GROUP','AZURE_VNET_NAME','AZURE_AI_ACCOUNT_NAME','AZURE_AI_PROJECT_NAME','AZURE_COSMOS_DB_NAME','AZURE_AI_SEARCH_NAME','AZURE_STORAGE_NAME','AZURE_ACR_NAME')) {
+        $existing = $envMap[$key]
+        $default = if ([string]::IsNullOrWhiteSpace($existing)) { $derived[$key] } else { $existing }
+        $value = Read-WithDefault "  $key" $default
+        & azd env set $key $value | Out-Null
+    }
+    Write-Host -ForegroundColor Green 'Resource names saved.'
+} else {
+    Write-Host -ForegroundColor DarkGray ("AZURE_NAME_PREFIX already set: {0}" -f $envMap['AZURE_NAME_PREFIX'])
+}
+
+# Refresh env map after naming step so the model step sees current values
+$envMap = Get-AzdEnvMap
+
+# ── 4. Foundry model deployment ─────────────────────────────────────────────
 
 if ([string]::IsNullOrWhiteSpace($envMap['AZURE_AI_MODEL_DEPLOYMENT_NAME'])) {
     Write-Host ''

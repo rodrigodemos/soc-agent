@@ -116,7 +116,56 @@ else
   echo "AZURE_LOCATION already set: $current_loc"
 fi
 
-# ── 3. Foundry model deployment ─────────────────────────────────────────────
+# ── 3. Resource naming ──────────────────────────────────────────────────────
+
+sanitize_prefix() {
+  local raw="$1"
+  local clean
+  clean="$(echo "$raw" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')"
+  if [[ ${#clean} -gt 16 ]]; then clean="${clean:0:16}"; fi
+  echo "$clean"
+}
+
+current_prefix="$(azd_env_get AZURE_NAME_PREFIX)"
+if [[ -z "$current_prefix" ]]; then
+  echo ""
+  echo "Resource naming"
+  echo "(Used as the default base name for every resource.)"
+
+  default_prefix="$(azd_env_get AZURE_ENV_NAME)"
+  if [[ -z "$default_prefix" ]]; then default_prefix='soc-agent'; fi
+  name_prefix="$(read_with_default 'Name prefix' "$default_prefix")"
+  name_prefix="${name_prefix%-}"
+  azd env set AZURE_NAME_PREFIX "$name_prefix" >/dev/null
+
+  sanitized="$(sanitize_prefix "$name_prefix")"
+
+  declare -A defaults
+  defaults[AZURE_RESOURCE_GROUP]="rg-${name_prefix}"
+  defaults[AZURE_VNET_NAME]="${name_prefix}-vnet"
+  defaults[AZURE_AI_ACCOUNT_NAME]="${name_prefix}-foundry"
+  defaults[AZURE_AI_PROJECT_NAME]="${name_prefix}-project"
+  defaults[AZURE_COSMOS_DB_NAME]="${name_prefix}-cosmos"
+  defaults[AZURE_AI_SEARCH_NAME]="${name_prefix}-search"
+  defaults[AZURE_STORAGE_NAME]="${sanitized}stor"
+  defaults[AZURE_ACR_NAME]="${sanitized}acr"
+
+  echo ""
+  echo "Derived resource names (Enter accepts; type to override):"
+  for key in AZURE_RESOURCE_GROUP AZURE_VNET_NAME AZURE_AI_ACCOUNT_NAME \
+             AZURE_AI_PROJECT_NAME AZURE_COSMOS_DB_NAME AZURE_AI_SEARCH_NAME \
+             AZURE_STORAGE_NAME AZURE_ACR_NAME; do
+    existing="$(azd_env_get "$key")"
+    default="${existing:-${defaults[$key]}}"
+    value="$(read_with_default "  $key" "$default")"
+    azd env set "$key" "$value" >/dev/null
+  done
+  echo "Resource names saved."
+else
+  echo "AZURE_NAME_PREFIX already set: $current_prefix"
+fi
+
+# ── 4. Foundry model deployment ─────────────────────────────────────────────
 
 current_model="$(azd_env_get AZURE_AI_MODEL_DEPLOYMENT_NAME)"
 if [[ -z "$current_model" ]]; then

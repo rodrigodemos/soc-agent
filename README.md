@@ -78,107 +78,45 @@ See [`docs/architecture.md`](docs/architecture.md) and
 
 ## Getting started
 
-End-to-end happy path. Steps 1–3 run from anywhere (your laptop); step 4 depends on which [deployment path](#deployment-paths) you pick.
+Three steps from a fresh clone to a running agent — all run from a VM inside the target VNet (or one in a peered VNet with the `privatelink.azurecr.io` DNS zone linked). Don't have an in-VNet host? See [Deployment paths](#deployment-paths) below for the split flow.
 
-### 1. Clone and open the repo
+### 1. Clone and sign in
 
 ```powershell
 git clone <this-repo> soc-agent
 cd soc-agent
-```
-
-### 2. Initialize the azd environment
-
-```powershell
 azd auth login
-azd init --environment soc-agent-dev          # pick any name you like
+azd init --environment soc-agent-dev      # any env name you want
 ```
 
-That's it. The template's `preprovision` hook will prompt you interactively at `azd provision` / `azd up` time to choose:
-
-- **Azure subscription** — a numbered picker from `az account list`. Default is whichever subscription `az` is currently signed in to.
-- **Azure region** — a numbered picker scoped to the regions allowed by `infra/main.bicep`. Default is `eastus2`.
-- **Foundry model** — name (default `gpt-5.4`), version, format, SKU, capacity (TPM). The hook writes your choices into both the azd env (for Bicep) and into the `deployments:` block of `azure.yaml` between the `SOC_AGENT_MODEL_DEPLOYMENT` markers (for the `azure.ai.agents` extension, which needs literal typed values).
-
-If you want unattended runs, set the env vars ahead of time and the hook will skip the prompts:
+### 2. Validate prerequisites
 
 ```powershell
-azd env set AZURE_SUBSCRIPTION_ID (az account show --query id -o tsv)
-azd env set AZURE_LOCATION eastus2
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
-azd env set MODEL_VERSION 2026-03-05
-azd env set MODEL_SKU GlobalStandard
-azd env set MODEL_CAPACITY 500
-```
-
-To re-prompt later (e.g., switching model), clear the relevant var and re-run `azd provision`:
-
-```powershell
-azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME ""   # hook will re-prompt
-azd provision
-```
-
-Optional — set any of the `EXISTING_*_RESOURCE_ID` variables now if you're [bringing your own VNet](#using-an-existing-vnet-byo) or [backend resources](#using-existing-backend-resources).
-
-### 3. Validate prerequisites
-
-Run the preflight script. It checks tooling versions, your Azure login, required resource-provider registrations, model quota in the target region, and (if configured) that any BYO resources actually exist and the agent subnet is correctly delegated.
-
-```powershell
-.\scripts\check-prereqs.ps1
-```
-
-If anything fails, fix it and re-run. Common one-time fix:
-
-```powershell
-.\scripts\check-prereqs.ps1 -RegisterProviders   # registers any missing RPs
+.\scripts\check-prereqs.ps1               # add -RegisterProviders for any missing RPs
 ```
 
 A clean run ends with `Passed: NN, Warnings: 0, Failures: 0`.
 
-### 4. Provision and deploy
+### 3. Provision and deploy
 
-Pick the path that matches your environment:
-
-**Path A — `azd up` from an in-VNet host** (single shot, recommended for repeat dev work)
-
-```bash
-# From a VM inside the VNet (or in a peered VNet with the privatelink DNS zone linked)
+```powershell
 azd up
 ```
 
-**Path B — Split (`azd provision` anywhere, `azd deploy` from in-VNet)** (bootstrapping from a laptop)
+The template's preprovision hook will interactively prompt for:
 
-```powershell
-# Step 1 — from your laptop
-azd provision
-```
+- **Azure subscription** (numbered picker; default = your current `az` context)
+- **Azure region** (numbered picker)
+- **Resource naming** — a single `AZURE_NAME_PREFIX` (default = your azd env name) drives every resource name (Foundry account, project, Cosmos DB, AI Search, storage, ACR, VNet, RG); each is shown for review and can be overridden one by one
+- **Foundry model** — name (default `gpt-5.4`), version, format, SKU, capacity (TPM)
 
-```bash
-# Step 2 — SSH / Bastion into the in-VNet host, clone the repo there, then:
-cd soc-agent
-azd auth login                                # or: az login --identity
-azd env refresh --environment soc-agent-dev   # pulls env values from Azure
-azd deploy
-```
+After `azd up` finishes (~25–35 min on first run), open the **Foundry portal** → your project → **Agents** → invoke `soc-copilot-agent` from the Playground.
 
-Either path takes ~25–35 minutes (most of it Foundry / capability-host provisioning on the first run).
-
-### 5. Verify
-
-```powershell
-azd env get-values | Select-String 'FOUNDRY_PROJECT_ENDPOINT|AZURE_AI_PROJECT_NAME|MCP_HTTP_SERVER_FQDN'
-```
-
-From a VPN / Bastion host that can reach the private endpoints:
-
-- Open the **Foundry portal** → your subscription → the new account+project → **Agents** → invoke `soc-copilot-agent` from the Playground.
-- (Optional) From an in-VNet host, hit the MCP server health check:
-  ```bash
-  curl http://<MCP_HTTP_SERVER_FQDN>/mcp -H 'Accept: text/event-stream'
-  ```
-
-You're up. From here, swap in your own MCP tools, customize the agent system prompt in `src/copilot-agent/main.py`, and work through the items in [`docs/BACKLOG.md`](docs/BACKLOG.md).
+> **Need help?** [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) covers
+> common failures (regional capacity, capability-host validation, subnet
+> reuse after delete, etc.). For unattended/CI runs, pinning env vars
+> ahead of time, BYO networking, BYO backends, and the split-deploy
+> workflow, see the sections below.
 
 ## Deployment paths
 
@@ -186,15 +124,19 @@ Because the Azure Container Registry is provisioned with **public network access
 
 That gives you two supported workflows:
 
-### Path A — Split: `azd provision` from anywhere, `azd deploy` from in-VNet
+### Path A — `azd up` from an in-VNet host (recommended)
 
-Use this when you're bootstrapping from a laptop or a build PC that lives outside the target VNet.
+This is what the [Getting started](#getting-started) walkthrough above uses. Everything runs from a single VM inside the VNet.
+
+### Path B — Split: `azd provision` from anywhere, `azd deploy` from in-VNet
+
+Use this when you're bootstrapping from a laptop and don't have an in-VNet build host yet (the very first `azd provision` creates the VNet that future deploys will run from).
 
 ```powershell
 # ── Step 1 — From your laptop (anywhere) ─────────────────────────────────
 azd auth login
 azd init --environment soc-agent-dev
-azd env set AZURE_LOCATION eastus2
+.\scripts\check-prereqs.ps1
 azd provision                  # creates VNet, Foundry, private endpoints, ACR, etc.
 ```
 
@@ -208,34 +150,30 @@ azd deploy                     # builds + pushes images, updates the agent + ACA
 ```
 
 What the in-VNet host needs:
-- DNS for `<acr>.azurecr.io` resolves to the **private IP** in the PE subnet
-  (true automatically if the VM is in the same VNet; if it's in a peered VNet,
-  link the `privatelink.azurecr.io` private DNS zone there too).
-- An identity with `AcrPush` on the registry (interactive `az login` user,
-  managed identity, or a service principal).
+- DNS for `<acr>.azurecr.io` resolves to the **private IP** in the PE subnet.
+- An identity with `AcrPush` on the registry (interactive user, managed identity, or SP).
 - `azd`, `az`, and Docker installed.
 
-### Path B — Single shot: `azd up` from in-VNet
+### Unattended / CI runs
 
-If your dev environment is already a VM inside the VNet (e.g., a Bastion-accessible jump box you keep around for SOC work), just run `azd up` from there and it handles both provision and deploy in one go:
+If you want to bypass the interactive preprovision prompts (e.g., in a pipeline), set the env vars ahead of time:
 
-```bash
-# From the in-VNet VM
-azd auth login
-azd init --environment soc-agent-dev
+```powershell
+azd env set AZURE_SUBSCRIPTION_ID (az account show --query id -o tsv)
 azd env set AZURE_LOCATION eastus2
-azd up
+azd env set AZURE_NAME_PREFIX soc-agent-dev
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME gpt-5.4
+azd env set MODEL_VERSION 2026-03-05
+azd env set MODEL_SKU GlobalStandard
+azd env set MODEL_CAPACITY 500
 ```
 
-### After deployment (either path)
+The hook detects which vars are already set and skips just those prompts. To re-prompt for any one of them later, clear it:
 
-- The Foundry **portal** is reachable from a VPN / ExpressRoute / Bastion host
-  that can resolve `privatelink.services.ai.azure.com` against the private
-  endpoint. From the public internet, the Foundry account is **not reachable**.
-- The Copilot-SDK hosted agent is callable from the **Foundry Playground** in
-  your project. It runs as a Container App on the Agent subnet.
-- The sample MCP HTTP server is reachable **inside the VNet** at
-  `MCP_HTTP_SERVER_FQDN:80` (see `azd env get-values`).
+```powershell
+azd env set AZURE_AI_MODEL_DEPLOYMENT_NAME ""   # hook will re-prompt the model
+azd provision
+```
 
 ### Alternative: dev-only IP allowlist on ACR
 

@@ -73,13 +73,36 @@ param principalType string = 'User'
 
 @minLength(2)
 @maxLength(40)
-@description('Name prefix for the Foundry (AI Services) account. A 4-char suffix is appended.')
+@description('Name prefix for the Foundry (AI Services) account when `aiAccountName` is not provided. A 4-char suffix is appended to the prefix for uniqueness.')
 param aiServices string = 'aifoundry'
 
 @minLength(2)
 @maxLength(40)
-@description('Name prefix for the Foundry project. A 4-char suffix is appended.')
+@description('Name prefix for the Foundry project when `aiProjectName` is not provided. A 4-char suffix is appended.')
 param firstProjectName string = 'project'
+
+// ── Per-resource name overrides (filled in by scripts/preprovision) ────────
+// When non-empty, these values override the *Prefix + uniqueSuffix defaults
+// computed in resources.bicep. Provide them via azd env vars (see
+// main.parameters.json) to give every resource a stable, predictable name.
+
+@description('Override for the Foundry account name. Empty = derive from aiServices + uniqueSuffix.')
+param aiAccountName string = ''
+
+@description('Override for the Foundry project name. Empty = derive from firstProjectName + uniqueSuffix.')
+param aiProjectName string = ''
+
+@description('Override for the Cosmos DB account name. Empty = derive from aiServices + uniqueSuffix + "cosmos".')
+param cosmosDbName string = ''
+
+@description('Override for the AI Search service name. Empty = derive from aiServices + uniqueSuffix + "search".')
+param aiSearchName string = ''
+
+@description('Override for the Storage account name (3-24 lowercase alphanumeric). Empty = derive from aiServices + uniqueSuffix + "stor".')
+param storageAccountName string = ''
+
+@description('Override for the Azure Container Registry name (5-50 lowercase alphanumeric, globally unique). Empty = derive from "acr" + uniqueSuffix + resourceGroup hash.')
+param acrName string = ''
 
 @description('Model to deploy to the Foundry account.')
 param modelName string = 'gpt-5.4'
@@ -209,6 +232,12 @@ module workload 'resources.bicep' = {
 
     aiServices: aiServices
     firstProjectName: firstProjectName
+    aiAccountNameOverride: aiAccountName
+    aiProjectNameOverride: aiProjectName
+    cosmosDbNameOverride: cosmosDbName
+    aiSearchNameOverride: aiSearchName
+    storageAccountNameOverride: storageAccountName
+    acrNameOverride: acrName
     modelName: modelName
     modelFormat: modelFormat
     modelVersion: modelVersion

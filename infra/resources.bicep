@@ -43,6 +43,14 @@ param modelVersion string
 param modelSkuName string
 param modelCapacity int
 
+// Per-resource name overrides. Empty = derive from prefix + uniqueSuffix.
+param aiAccountNameOverride string = ''
+param aiProjectNameOverride string = ''
+param cosmosDbNameOverride string = ''
+param aiSearchNameOverride string = ''
+param storageAccountNameOverride string = ''
+param acrNameOverride string = ''
+
 // VNet
 param vnetName string
 param agentSubnetName string
@@ -84,14 +92,20 @@ param projectDisplayName string = 'soc-copilot project'
 param projectCapHost string = 'caphostproj'
 
 // ── Derived names ───────────────────────────────────────────────────────────
+//
+// Each name uses the override when provided; otherwise it falls back to the
+// upstream sample 19 pattern (prefix + 4-char uniqueSuffix derived from the
+// resource group ID). This keeps the template deployable with zero env-var
+// configuration, while letting the preprovision hook give every resource a
+// stable, predictable name.
 
 var uniqueSuffix = substring(uniqueString(resourceGroup().id), 0, 4)
-var accountName = toLower('${aiServices}${uniqueSuffix}')
-var projectName = toLower('${firstProjectName}${uniqueSuffix}')
-var cosmosDBName = toLower('${aiServices}${uniqueSuffix}cosmos')
-var aiSearchName = toLower('${aiServices}${uniqueSuffix}search')
-var azureStorageName = toLower('${aiServices}${uniqueSuffix}stor')
-var acrName = toLower('acr${uniqueSuffix}${uniqueString(resourceGroup().id)}')
+var accountName = empty(aiAccountNameOverride) ? toLower('${aiServices}${uniqueSuffix}') : toLower(aiAccountNameOverride)
+var projectName = empty(aiProjectNameOverride) ? toLower('${firstProjectName}${uniqueSuffix}') : toLower(aiProjectNameOverride)
+var cosmosDBName = empty(cosmosDbNameOverride) ? toLower('${aiServices}${uniqueSuffix}cosmos') : toLower(cosmosDbNameOverride)
+var aiSearchName = empty(aiSearchNameOverride) ? toLower('${aiServices}${uniqueSuffix}search') : toLower(aiSearchNameOverride)
+var azureStorageName = empty(storageAccountNameOverride) ? toLower('${aiServices}${uniqueSuffix}stor') : toLower(storageAccountNameOverride)
+var acrName = empty(acrNameOverride) ? toLower('acr${uniqueSuffix}${uniqueString(resourceGroup().id)}') : toLower(acrNameOverride)
 
 // Existence flags
 var storagePassedIn = existingAzureStorageAccountResourceId != ''
