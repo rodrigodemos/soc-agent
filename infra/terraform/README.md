@@ -1,22 +1,21 @@
 # Terraform infra for `soc-agent`
 
-Alternative to the default Bicep infra under [`../infra/`](../infra/). Same
-feature set, same azd outputs — pick whichever IaC tool your team prefers.
+**Default IaC for this template.** The Bicep alternative lives in [`../bicep/`](../bicep/).
 
-## Switching from Bicep to Terraform
+## Switching between Terraform and Bicep
 
 Edit `azure.yaml` at the repo root:
 
 ```yaml
-# Change:
-infra:
-  provider: bicep
-  path: ./infra
-
-# To:
+# Default (Terraform)
 infra:
   provider: terraform
-  path: ./infra-terraform
+  path: ./infra/terraform
+
+# Alternative (Bicep)
+infra:
+  provider: bicep
+  path: ./infra/bicep
 ```
 
 Then re-run `azd up` (or `azd provision`). The preprovision hook, azd env
@@ -33,18 +32,18 @@ is the IaC engine that ARM sees.
 | `locals.tf`        | Naming resolution, BYO flags, unified resource references, DNS zone IDs. |
 | `data.tf`          | Data sources for BYO Storage / Cosmos / Search / current subscription. |
 | `main.tf`          | All resources: VNet, subnets, backends, Foundry account+project+caphost, DNS zones + VNet links, private endpoints, RBAC (pre- and post-caphost), App Insights, ACR, MCP HTTP server Container App, destroy-time Foundry purge. |
-| `outputs.tf`       | Outputs consumed by azd (same names as `infra/main.bicep`). |
+| `outputs.tf`       | Outputs consumed by azd (same names as `../bicep/main.bicep`). |
 | `main.tfvars.json` | Bindings from azd env vars → terraform vars. azd reads this at plan time. |
 | `example.tfvars`   | Sample tfvars for standalone `terraform apply` (bypassing azd). |
 
 ## Parity with Bicep
 
-The Terraform port is functionally equivalent to `infra/main.bicep` plus its
-submodules. Deliberate deltas:
+The Terraform stack is functionally equivalent to `../bicep/main.bicep` plus
+its submodules. Deliberate deltas:
 
 - **No Azure Monitor Private Link Scope (AMPLS).** The Bicep version wires an
   AMPLS so trace ingestion reaches Application Insights over the private VNet.
-  The Terraform port creates Application Insights with `internet_ingestion_
+  The Terraform stack creates Application Insights with `internet_ingestion_
   enabled = false` but doesn't build the AMPLS + linked-services graph. Add
   `azurerm_monitor_private_link_scope` + `azurerm_monitor_private_link_scoped_
   service` if you need it.
@@ -58,7 +57,7 @@ submodules. Deliberate deltas:
 ## Standalone use (no azd)
 
 ```bash
-cd infra-terraform
+cd infra/terraform
 cp example.tfvars terraform.tfvars
 # edit terraform.tfvars
 
@@ -85,5 +84,5 @@ Cognitive Services account on destroy, which releases the agent subnet's
 `serviceAssociationLink` so the subnet can be reused. `time_sleep` gives the
 backend ~15 min to unwind before the DELETE fires. If you skip the terraform
 destroy (e.g. delete the RG directly), see
-[`../docs/TROUBLESHOOTING.md`](../docs/TROUBLESHOOTING.md) for the manual
-purge steps.
+[`../../docs/TROUBLESHOOTING.md`](../../docs/TROUBLESHOOTING.md) for the
+manual purge steps.

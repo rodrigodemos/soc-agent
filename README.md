@@ -184,7 +184,7 @@ azd env set DEVELOPER_IP_CIDR "$(curl -s https://api.ipify.org)/32"
 azd up
 ```
 
-When set, `infra/modules/registry/container-registry.bicep` flips ACR to `publicNetworkAccess: Enabled` with a **default-deny firewall plus a single allow rule for that CIDR**. Don't use this in production — clear it (`azd env set DEVELOPER_IP_CIDR ""` then `azd provision`) when you're done. See [`docs/networking.md`](docs/networking.md) for the trade-offs and notes on ACR Tasks with private registries.
+When set, `infra/bicep/modules/registry/container-registry.bicep` (or the equivalent `azurerm_container_registry` block in the Terraform stack) flips ACR to `publicNetworkAccess: Enabled` with a **default-deny firewall plus a single allow rule for that CIDR**. Don't use this in production — clear it (`azd env set DEVELOPER_IP_CIDR ""` then `azd provision`) when you're done. See [`docs/networking.md`](docs/networking.md) for the trade-offs and notes on ACR Tasks with private registries.
 
 ### Switching between private and public Foundry access
 
@@ -192,7 +192,8 @@ The Foundry account is created with `publicNetworkAccess: Disabled` and
 `defaultAction: Deny`. To flip it to public during dev:
 
 ```bash
-# in infra/modules/ai/ai-account-identity.bicep
+# in infra/bicep/modules/ai/ai-account-identity.bicep (Bicep) or
+# infra/terraform/main.tf → resource "azapi_resource" "ai_foundry" (Terraform)
 # change:  publicNetworkAccess: 'Disabled'  →  'Enabled'
 # change:  defaultAction: 'Deny'            →  'Allow'
 azd provision
@@ -232,26 +233,27 @@ azd env set EXISTING_AZURE_STORAGE_ACCOUNT_RESOURCE_ID   "<ARM ID>"
 .
 ├── README.md                       # this file
 ├── azure.yaml                      # azd manifest (services: copilot-agent, mcp-http-server)
-├── infra/                          # Bicep IaC (default)
-│   ├── main.bicep                  # subscription-scoped: RG + workload
-│   ├── resources.bicep             # RG-scoped: ported sample 19 main + MCP tool
-│   ├── main.parameters.json        # azd env-var bindings
-│   ├── abbreviations.json
-│   └── modules/
-│       ├── network/                # VNet + subnets (new or BYO)
-│       ├── ai/                     # Foundry account, project, cap host
-│       ├── dependencies/           # BYO Cosmos / Search / Storage
-│       ├── privatelink/            # private endpoints + DNS zones + AMPLS
-│       ├── monitoring/             # workspace-based Application Insights
-│       ├── registry/               # Premium ACR + PE + dev-IP allowlist
-│       ├── roles/                  # RBAC assignments (storage, cosmos, search)
-│       └── tools/                  # ACA env + MCP HTTP server app
-├── infra-terraform/                # Terraform IaC (alternative — see README inside)
-│   ├── main.tf                     # all resources
-│   ├── variables.tf, locals.tf, data.tf, outputs.tf, providers.tf, versions.tf
-│   ├── main.tfvars.json            # azd env-var bindings
-│   ├── example.tfvars              # sample vars for standalone `terraform apply`
-│   └── README.md                   # how to switch and standalone-use guide
+├── infra/
+│   ├── bicep/                      # Bicep IaC (alternative)
+│   │   ├── main.bicep              # subscription-scoped: RG + workload
+│   │   ├── resources.bicep         # RG-scoped: ported sample 19 main + MCP tool
+│   │   ├── main.parameters.json    # azd env-var bindings
+│   │   ├── abbreviations.json
+│   │   └── modules/
+│   │       ├── network/            # VNet + subnets (new or BYO)
+│   │       ├── ai/                 # Foundry account, project, cap host
+│   │       ├── dependencies/       # BYO Cosmos / Search / Storage
+│   │       ├── privatelink/        # private endpoints + DNS zones + AMPLS
+│   │       ├── monitoring/         # workspace-based Application Insights
+│   │       ├── registry/           # Premium ACR + PE + dev-IP allowlist
+│   │       ├── roles/              # RBAC assignments (storage, cosmos, search)
+│   │       └── tools/              # ACA env + MCP HTTP server app
+│   └── terraform/                  # Terraform IaC (default — see README inside)
+│       ├── main.tf                 # all resources
+│       ├── variables.tf, locals.tf, data.tf, outputs.tf, providers.tf, versions.tf
+│       ├── main.tfvars.json        # azd env-var bindings
+│       ├── example.tfvars          # sample vars for standalone `terraform apply`
+│       └── README.md               # standalone-use guide
 ├── src/
 │   ├── copilot-agent/              # Foundry hosted agent (Copilot SDK, BYOK)
 │   └── mcp-http-server/            # Sample MCP HTTP server (FastMCP)
@@ -270,11 +272,13 @@ azd env set EXISTING_AZURE_STORAGE_ACCOUNT_RESOURCE_ID   "<ARM ID>"
 ### Bicep vs Terraform
 
 Both stacks are feature-equivalent and share the same azd env vars and output
-names. Pick one:
+names. The template ships with **Terraform as the default**; switch by
+changing `infra.provider` and `infra.path` in `azure.yaml`:
 
-- **Bicep (default)** — `infra/`, referenced from `azure.yaml` out of the box.
-- **Terraform** — `infra-terraform/`, switch by changing `infra.provider` and
-  `infra.path` in `azure.yaml`. See [`infra-terraform/README.md`](infra-terraform/README.md).
+- **Terraform (default)** — `infra/terraform/`.
+- **Bicep** — `infra/bicep/`, switch by setting `provider: bicep` +
+  `path: ./infra/bicep`. See [`infra/terraform/README.md`](infra/terraform/README.md)
+  for the exact YAML snippet (works in reverse too).
 
 The preprovision hook, `check-prereqs.ps1`, and everything under `src/`
 work identically with either provider.

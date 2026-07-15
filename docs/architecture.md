@@ -55,7 +55,8 @@
 ## Trace path
 
 The agent has an `AppInsights` connection on the Foundry project (created by
-`infra/modules/monitoring/application-insights.bicep`). OTel exports flow
+`infra/bicep/modules/monitoring/application-insights.bicep` — Terraform users
+see `azurerm_application_insights.appi` in `infra/terraform/main.tf`). OTel exports flow
 **from the Agent subnet → PE subnet (AMPLS)** to the workspace-based
 Application Insights — never over the public internet, since
 `publicNetworkAccessForIngestion: Disabled`.

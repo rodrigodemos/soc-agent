@@ -150,8 +150,8 @@ a VPN, Bastion, or jump VM that can resolve the ACA env's internal DNS zone.
 - `azd env get-values` to see what's saved in your env.
 - `azd show` to see the current azd state (provisioned resources, outputs).
 - Which IaC is active: `grep -E 'provider|path' azure.yaml` — the template
-  ships both `infra/` (Bicep, default) and `infra-terraform/` (Terraform);
-  swap them by editing `azure.yaml`'s `infra:` block.
+  ships both `infra/terraform/` (Terraform, default) and `infra/bicep/`
+  (Bicep alternative); swap them by editing `azure.yaml`'s `infra:` block.
 - `az deployment group list --resource-group rg-<env-name> -o table` to
   list all ARM deployments and their states.
 - `az deployment group operation list --resource-group rg-<env-name> --name <deployment-name> -o table`
@@ -162,7 +162,7 @@ a VPN, Bastion, or jump VM that can resolve the ACA env's internal DNS zone.
   ```
   …and look at `properties.provisioningState` and any `properties.statusMessage`.
 - **Terraform-specific**: `terraform state list` and `terraform state show <addr>`
-  inside `infra-terraform/` after a failure to see what got created before it
+  inside `infra/terraform/` after a failure to see what got created before it
   broke. `terraform destroy` (rather than `azd down`) is the cleanest cleanup
   path when the Terraform stack is active — it honors the `time_sleep` +
   `purge_ai_foundry` chain that releases the agent subnet.

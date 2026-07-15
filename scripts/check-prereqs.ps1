@@ -277,7 +277,7 @@ if ($account) {
 
 Write-Section 'Region & quota'
 
-# Allowed regions are the union from infra/main.bicep and the upstream sample.
+    # Allowed regions are the union from infra/bicep/main.bicep and the upstream sample.
 $allowedRegions = @(
     'westus','westus2','westus3','eastus','eastus2','southcentralus','northcentralus',
     'canadacentral','canadaeast','brazilsouth','francecentral','germanywestcentral',

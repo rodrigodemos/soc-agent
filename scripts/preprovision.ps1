@@ -152,7 +152,7 @@ if ([string]::IsNullOrWhiteSpace($envMap['AZURE_SUBSCRIPTION_ID'])) {
 # ── 2. Region ───────────────────────────────────────────────────────────────
 
 if ([string]::IsNullOrWhiteSpace($envMap['AZURE_LOCATION'])) {
-    # Must match the allowed list in infra/main.bicep
+    # Must match the allowed list in infra/bicep/main.bicep
     $regions = @(
         'eastus2','eastus','westus2','westus3','westus','southcentralus','northcentralus',
         'canadacentral','canadaeast','brazilsouth','francecentral','germanywestcentral',

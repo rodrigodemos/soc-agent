@@ -1,5 +1,5 @@
 ########## azd-consumed outputs ##########
-## Names match infra/main.bicep so the azd env keys are identical whether the
+## Names match infra/bicep/main.bicep so the azd env keys are identical whether the
 ## deployment came from Bicep or Terraform.
 
 output "AZURE_LOCATION" {

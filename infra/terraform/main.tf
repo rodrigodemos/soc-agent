@@ -1,6 +1,6 @@
 ########## soc-agent — Terraform port of sample 19 with SOC-agent additions ##########
 ##
-## Feature parity with infra/main.bicep (Bicep):
+## Feature parity with infra/bicep/main.bicep (Bicep):
 ##   * Private VNet + Agent/PE/MCP subnets (create-new or BYO)
 ##   * Foundry account with publicNetworkAccess=Disabled + networkInjections
 ##   * Foundry project + capability host (kind=Agents)
