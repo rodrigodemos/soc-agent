@@ -232,7 +232,7 @@ azd env set EXISTING_AZURE_STORAGE_ACCOUNT_RESOURCE_ID   "<ARM ID>"
 .
 ├── README.md                       # this file
 ├── azure.yaml                      # azd manifest (services: copilot-agent, mcp-http-server)
-├── infra/
+├── infra/                          # Bicep IaC (default)
 │   ├── main.bicep                  # subscription-scoped: RG + workload
 │   ├── resources.bicep             # RG-scoped: ported sample 19 main + MCP tool
 │   ├── main.parameters.json        # azd env-var bindings
@@ -246,16 +246,38 @@ azd env set EXISTING_AZURE_STORAGE_ACCOUNT_RESOURCE_ID   "<ARM ID>"
 │       ├── registry/               # Premium ACR + PE + dev-IP allowlist
 │       ├── roles/                  # RBAC assignments (storage, cosmos, search)
 │       └── tools/                  # ACA env + MCP HTTP server app
+├── infra-terraform/                # Terraform IaC (alternative — see README inside)
+│   ├── main.tf                     # all resources
+│   ├── variables.tf, locals.tf, data.tf, outputs.tf, providers.tf, versions.tf
+│   ├── main.tfvars.json            # azd env-var bindings
+│   ├── example.tfvars              # sample vars for standalone `terraform apply`
+│   └── README.md                   # how to switch and standalone-use guide
 ├── src/
 │   ├── copilot-agent/              # Foundry hosted agent (Copilot SDK, BYOK)
 │   └── mcp-http-server/            # Sample MCP HTTP server (FastMCP)
-├── scripts/                        # createCapHost.sh / deleteCapHost.sh / get-existing-resources.ps1
+├── scripts/
+│   ├── check-prereqs.ps1           # pre-flight validation
+│   ├── preprovision.ps1/.sh        # azd hook — pickers + naming + model prompts
+│   ├── createCapHost.sh / deleteCapHost.sh   # cap-host escape hatches
+│   └── get-existing-resources.ps1  # BYO helper
 └── docs/
     ├── architecture.md
     ├── networking.md
     ├── TROUBLESHOOTING.md
     └── BACKLOG.md
 ```
+
+### Bicep vs Terraform
+
+Both stacks are feature-equivalent and share the same azd env vars and output
+names. Pick one:
+
+- **Bicep (default)** — `infra/`, referenced from `azure.yaml` out of the box.
+- **Terraform** — `infra-terraform/`, switch by changing `infra.provider` and
+  `infra.path` in `azure.yaml`. See [`infra-terraform/README.md`](infra-terraform/README.md).
+
+The preprovision hook, `check-prereqs.ps1`, and everything under `src/`
+work identically with either provider.
 
 ## Troubleshooting
 

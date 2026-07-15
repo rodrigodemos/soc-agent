@@ -27,8 +27,22 @@ src/**/.env
 node_modules/
 dist/
 build/
+
+# Terraform
 *.tfstate
 *.tfstate.backup
+*.tfstate.*.backup
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+terraform.tfvars
+terraform.tfvars.json
+!example.tfvars
 
 # IDE
 .vscode/*

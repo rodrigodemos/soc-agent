@@ -432,21 +432,65 @@ if ($azdEnvValues['DEVELOPER_IP_CIDR']) {
 Write-Section 'Repository'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-foreach ($f in 'azure.yaml','infra\main.bicep','infra\main.parameters.json','src\copilot-agent\main.py','src\mcp-http-server\app\main.py') {
+
+# Detect the active IaC provider from azure.yaml so we validate the right stack
+$activeProvider = 'bicep'
+$activeInfraPath = 'infra'
+$azureYamlPath = Join-Path $repoRoot 'azure.yaml'
+if (Test-Path $azureYamlPath) {
+    $ay = Get-Content -Raw $azureYamlPath
+    if ($ay -match '(?ms)^\s*infra:\s*.*?provider:\s*(\S+).*?path:\s*\./?(\S+)') {
+        $activeProvider  = $Matches[1]
+        $activeInfraPath = $Matches[2]
+    }
+}
+Write-Check Info 'IaC provider'  ("azure.yaml → provider={0}, path={1}" -f $activeProvider, $activeInfraPath)
+
+$commonFiles = @('azure.yaml','src\copilot-agent\main.py','src\mcp-http-server\app\main.py')
+$providerFiles = if ($activeProvider -eq 'terraform') {
+    @("$activeInfraPath\main.tf", "$activeInfraPath\variables.tf", "$activeInfraPath\outputs.tf", "$activeInfraPath\main.tfvars.json")
+} else {
+    @("$activeInfraPath\main.bicep", "$activeInfraPath\main.parameters.json")
+}
+foreach ($f in ($commonFiles + $providerFiles)) {
     $p = Join-Path $repoRoot $f
     if (Test-Path $p) { Write-Check Pass "found: $f" } else { Write-Check Fail "missing: $f" }
 }
 
-# Bicep compile
-if (Test-Command az) {
-    $tmp = New-TemporaryFile
-    & az bicep build --file (Join-Path $repoRoot 'infra\main.bicep') --outfile $tmp 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Check Pass 'Bicep compile'  'infra\main.bicep built without errors'
+# Validate the active IaC stack
+if ($activeProvider -eq 'terraform') {
+    if (Test-Command terraform) {
+        Push-Location (Join-Path $repoRoot $activeInfraPath)
+        try {
+            $tfInit = & terraform init -input=false -backend=false 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) {
+                Write-Check Fail 'Terraform init' 'terraform init failed — see terraform init output'
+            } else {
+                $tfVal = & terraform validate 2>&1 | Out-String
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Check Pass 'Terraform validate'  "$activeInfraPath validates without errors"
+                } else {
+                    Write-Check Fail 'Terraform validate'  ("failed:`n$tfVal")
+                }
+            }
+        } finally {
+            Pop-Location
+        }
     } else {
-        Write-Check Fail 'Bicep compile'  'infra\main.bicep failed to build — run: az bicep build --file infra\main.bicep'
+        Write-Check Warn 'Terraform CLI' 'not installed — install from https://developer.hashicorp.com/terraform/install to validate locally'
     }
-    Remove-Item $tmp -ErrorAction SilentlyContinue
+} else {
+    # Bicep
+    if (Test-Command az) {
+        $tmp = New-TemporaryFile
+        & az bicep build --file (Join-Path $repoRoot "$activeInfraPath\main.bicep") --outfile $tmp 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Check Pass 'Bicep compile'  "$activeInfraPath\main.bicep built without errors"
+        } else {
+            Write-Check Fail 'Bicep compile'  "$activeInfraPath\main.bicep failed to build — run: az bicep build --file $activeInfraPath\main.bicep"
+        }
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+    }
 }
 
 # ── Summary ─────────────────────────────────────────────────────────────────
