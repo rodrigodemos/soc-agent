@@ -223,3 +223,76 @@ PYEOF
 else
   echo "Model deployment already set: $current_model"
 fi
+
+# ── 5. Capability-host idempotency ──────────────────────────────────────────
+#
+# The Foundry project's connections (Cosmos / Storage / AI Search) become
+# locked once the project capability host is created ("Connection is in use by
+# the workspace capability host and cannot be modified or deleted"). Re-running
+# 'azd provision' would then fail trying to re-apply those connections.
+#
+# Probe whether the capability host already exists and surface the result as
+# AZURE_CAPABILITY_HOST_EXISTS. When true, the Bicep skips re-applying the
+# connections and the capability host. On a first deploy the probe returns
+# false and everything is created.
+
+cap_host_name='caphostproj'   # must match projectCapHost in resources.bicep
+sub_id="$(azd_env_get AZURE_SUBSCRIPTION_ID)"
+rg_name="$(azd_env_get AZURE_RESOURCE_GROUP)"
+acct_name="$(azd_env_get AZURE_AI_ACCOUNT_NAME)"
+proj_name="$(azd_env_get AZURE_AI_PROJECT_NAME)"
+
+cap_host_exists='false'
+if [[ -n "$sub_id" && -n "$rg_name" && -n "$acct_name" && -n "$proj_name" ]]; then
+  cap_host_url="https://management.azure.com/subscriptions/${sub_id}/resourceGroups/${rg_name}/providers/Microsoft.CognitiveServices/accounts/${acct_name}/projects/${proj_name}/capabilityHosts/${cap_host_name}?api-version=2025-04-01-preview"
+  state="$(az rest --method get --url "$cap_host_url" --query "properties.provisioningState" -o tsv 2>/dev/null || true)"
+  if [[ "$state" == "Succeeded" ]]; then
+    cap_host_exists='true'
+  fi
+fi
+
+azd env set AZURE_CAPABILITY_HOST_EXISTS "$cap_host_exists" >/dev/null
+if [[ "$cap_host_exists" == "true" ]]; then
+  echo "Capability host '$cap_host_name' already exists — skipping connection/caphost re-apply (AZURE_CAPABILITY_HOST_EXISTS=true)."
+else
+  echo "Capability host not found — connections and caphost will be created (AZURE_CAPABILITY_HOST_EXISTS=false)."
+fi
+
+# ── 6. Reset a failed Container Apps environment ────────────────────────────
+#
+# A managed environment stuck in 'Failed' (e.g. from a transient
+# ManagedEnvironmentCapacityHeavyUsageError) cannot host a Container App and
+# does not self-repair — re-running 'azd provision' then fails with
+# ManagedEnvironmentNotReadyForAppCreation. Delete any failed MCP environment
+# so the next provision recreates it cleanly. Healthy ('Succeeded')
+# environments are left untouched.
+
+if [[ -n "$sub_id" && -n "$rg_name" ]]; then
+  env_list_url="https://management.azure.com/subscriptions/${sub_id}/resourceGroups/${rg_name}/providers/Microsoft.App/managedEnvironments?api-version=2024-03-01"
+  failed_env_ids="$(az rest --method get --url "$env_list_url" --query "value[?starts_with(name, 'cae-mcp-') && properties.provisioningState=='Failed'].id" -o tsv 2>/dev/null || true)"
+  if [[ -n "$failed_env_ids" ]]; then
+    while IFS= read -r env_id; do
+      [[ -z "$env_id" ]] && continue
+      env_name="${env_id##*/}"
+      env_url="https://management.azure.com${env_id}?api-version=2024-03-01"
+      echo "Container Apps environment '$env_name' is in 'Failed' state — deleting so it can be recreated..."
+      # NOTE: use a direct REST DELETE, not 'az resource delete' — the generic
+      # command fails to delete managed environments. Deletion is async, so poll
+      # until the resource is gone; otherwise the subsequent provision collides
+      # with the still-deleting environment (same name).
+      az rest --method delete --url "$env_url" >/dev/null 2>&1 || true
+      deleted="false"
+      for _ in $(seq 1 60); do
+        sleep 15
+        if ! az rest --method get --url "$env_url" >/dev/null 2>&1; then
+          deleted="true"; break
+        fi
+      done
+      if [[ "$deleted" == "true" ]]; then
+        echo "Deleted failed environment '$env_name'."
+      else
+        echo "Environment '$env_name' is still deleting after several minutes; if provision fails, wait a minute and re-run 'azd provision'."
+      fi
+    done <<< "$failed_env_ids"
+  fi
+fi

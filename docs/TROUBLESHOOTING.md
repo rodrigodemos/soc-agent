@@ -4,6 +4,70 @@ Known issues hit by this template's deployments, with concrete remediation.
 
 ## `azd provision` failures
 
+### `ManagedEnvironmentNotReadyForAppCreation` / Container Apps environment stuck in `Failed`
+
+**Symptom (during the `mcp-http-server` deployment):**
+```
+"code": "ManagedEnvironmentNotReadyForAppCreation",
+"message": "Container App Environment is not ready for container app creation
+as it is in state 'Failed'."
+```
+
+**Cause.** A prior provision hit a transient `ManagedEnvironmentCapacityHeavyUsageError`
+(regional Container Apps capacity) and left the managed environment
+(`cae-mcp-<suffix>`) in a `Failed` provisioning state. A `Failed` environment
+can't host a Container App and does **not** self-repair, so subsequent
+`azd provision` runs keep failing when they try to create the app on it.
+
+**Fix — handled automatically.** The `scripts/preprovision` hook detects any
+`cae-mcp-*` environment in `Failed` state and deletes it, so the next
+`azd provision` recreates it cleanly. Just re-run:
+
+```powershell
+azd provision
+```
+
+If the environment keeps landing in `Failed`, the underlying cause is regional
+capacity — wait and retry, or switch region (see the
+`InsufficientResourcesAvailable` section below).
+
+### `Connection '<name>' is in use by the workspace capability host and cannot be modified or deleted`
+
+**Symptom (during the `aiProject` deployment, on a *re-run* of `azd provision`):**
+```
+UserError: Connection 'socagent3stor' is in use by the workspace capability
+host and cannot be modified or deleted through the connections API. Update the
+owning capabilitySettings value instead.
+```
+(usually one per project connection: storage, AI Search, Cosmos)
+
+**Cause.** Once the project **capability host** (`caphostproj`) is created, it
+locks the three project connections. Re-running `azd provision` re-applies those
+connections (`modules/ai/ai-project-identity.bicep`) and the Foundry connections
+API rejects the update. This aborts the dependent chain — including the MCP
+Container App, which `dependsOn` the capability host — so a partially-failed
+first deploy can't be finished by simply re-running provision.
+
+**Fix — handled automatically.** The `scripts/preprovision` hook probes whether
+`caphostproj` exists and sets `AZURE_CAPABILITY_HOST_EXISTS`. When it already
+exists, the Bicep **skips** re-applying the connections and the capability host
+(they never change after first creation), so `azd provision` is idempotent and
+finishes any remaining resources (e.g. the MCP environment). Just re-run:
+
+```powershell
+azd provision
+```
+
+If you ever need to force the connections/caphost to be recreated (e.g. you
+changed a backend account), delete the capability host first so the connections
+unlock, then provision:
+
+```powershell
+az rest --method delete --url "https://management.azure.com/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>/capabilityHosts/caphostproj?api-version=2025-04-01-preview"
+azd env set AZURE_CAPABILITY_HOST_EXISTS false
+azd provision
+```
+
 ### `InsufficientResourcesAvailable: The region '<region>' is currently out of the resources required to provision new services`
 
 **Symptom (during `aiDependencies` deployment):**

@@ -260,3 +260,82 @@ if ([string]::IsNullOrWhiteSpace($envMap['AZURE_AI_MODEL_DEPLOYMENT_NAME'])) {
     Write-Host -ForegroundColor DarkGray ("Model deployment already set: {0}" -f $envMap['AZURE_AI_MODEL_DEPLOYMENT_NAME'])
 }
 
+# ── 5. Capability-host idempotency ──────────────────────────────────────────
+#
+# The Foundry project's connections (Cosmos / Storage / AI Search) become
+# locked once the project capability host is created ("Connection is in use by
+# the workspace capability host and cannot be modified or deleted"). Re-running
+# `azd provision` would then fail trying to re-apply those connections.
+#
+# To keep re-provisions idempotent, probe whether the capability host already
+# exists and surface the result as AZURE_CAPABILITY_HOST_EXISTS. When true, the
+# Bicep skips re-applying the connections and the capability host. On a first
+# deploy (nothing exists yet) the probe returns false and everything is created.
+
+$envMap = Get-AzdEnvMap
+$capHostName = 'caphostproj'   # must match projectCapHost in resources.bicep
+$subId   = $envMap['AZURE_SUBSCRIPTION_ID']
+$rgName  = $envMap['AZURE_RESOURCE_GROUP']
+$acctName = $envMap['AZURE_AI_ACCOUNT_NAME']
+$projName = $envMap['AZURE_AI_PROJECT_NAME']
+
+$capHostExists = $false
+if ($subId -and $rgName -and $acctName -and $projName) {
+    $capHostUrl = "https://management.azure.com/subscriptions/$subId/resourceGroups/$rgName/providers/Microsoft.CognitiveServices/accounts/$acctName/projects/$projName/capabilityHosts/$capHostName`?api-version=2025-04-01-preview"
+    $resp = & az rest --method get --url $capHostUrl 2>$null
+    if ($LASTEXITCODE -eq 0 -and $resp) {
+        try {
+            $capHost = $resp | ConvertFrom-Json
+            if ($capHost.properties.provisioningState -eq 'Succeeded') { $capHostExists = $true }
+        } catch { $capHostExists = $false }
+    }
+}
+
+$capHostFlag = $capHostExists.ToString().ToLower()
+& azd env set AZURE_CAPABILITY_HOST_EXISTS $capHostFlag | Out-Null
+if ($capHostExists) {
+    Write-Host -ForegroundColor DarkGray "Capability host '$capHostName' already exists — skipping connection/caphost re-apply (AZURE_CAPABILITY_HOST_EXISTS=true)."
+} else {
+    Write-Host -ForegroundColor DarkGray "Capability host not found — connections and caphost will be created (AZURE_CAPABILITY_HOST_EXISTS=false)."
+}
+
+# ── 6. Reset a failed Container Apps environment ────────────────────────────
+#
+# A managed environment stuck in 'Failed' (e.g. from a transient
+# ManagedEnvironmentCapacityHeavyUsageError) cannot host a Container App and
+# does not self-repair — re-running `azd provision` then fails with
+# ManagedEnvironmentNotReadyForAppCreation. Delete any failed MCP environment
+# so the next provision recreates it cleanly. Healthy ('Succeeded')
+# environments are left untouched.
+
+if ($subId -and $rgName) {
+    $envListUrl = "https://management.azure.com/subscriptions/$subId/resourceGroups/$rgName/providers/Microsoft.App/managedEnvironments`?api-version=2024-03-01"
+    $envListJson = & az rest --method get --url $envListUrl 2>$null
+    if ($LASTEXITCODE -eq 0 -and $envListJson) {
+        $managedEnvs = @()
+        try { $managedEnvs = ($envListJson | ConvertFrom-Json).value } catch { $managedEnvs = @() }
+        foreach ($mEnv in $managedEnvs) {
+            if ($mEnv.name -like 'cae-mcp-*' -and $mEnv.properties.provisioningState -eq 'Failed') {
+                Write-Host -ForegroundColor Yellow "Container Apps environment '$($mEnv.name)' is in 'Failed' state — deleting so it can be recreated..."
+                # NOTE: use a direct REST DELETE, not `az resource delete` — the generic
+                # command fails to delete managed environments. Deletion is async, so
+                # poll until the resource is gone; otherwise the subsequent provision
+                # collides with the still-deleting environment (same name).
+                $mEnvUrl = "https://management.azure.com$($mEnv.id)`?api-version=2024-03-01"
+                & az rest --method delete --url $mEnvUrl 2>$null | Out-Null
+                $mEnvDeleted = $false
+                for ($i = 0; $i -lt 60; $i++) {
+                    Start-Sleep -Seconds 15
+                    & az rest --method get --url $mEnvUrl 2>$null | Out-Null
+                    if ($LASTEXITCODE -ne 0) { $mEnvDeleted = $true; break }
+                }
+                if ($mEnvDeleted) {
+                    Write-Host -ForegroundColor Green "Deleted failed environment '$($mEnv.name)'."
+                } else {
+                    Write-Host -ForegroundColor Yellow "Environment '$($mEnv.name)' is still deleting after several minutes; if provision fails, wait a minute and re-run 'azd provision'."
+                }
+            }
+        }
+    }
+}
+

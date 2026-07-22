@@ -119,6 +119,9 @@
         },
         "mcpHttpServerImageTag": {
             "value": "${MCP_HTTP_SERVER_IMAGE_TAG=latest}"
+        },
+        "capabilityHostExists": {
+            "value": "${AZURE_CAPABILITY_HOST_EXISTS=false}"
         }
     }
 }

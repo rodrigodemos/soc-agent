@@ -16,6 +16,9 @@ param azureStorageName string
 param azureStorageSubscriptionId string
 param azureStorageResourceGroupName string
 
+@description('True when the project capability host already exists. When true, the project connections are NOT re-applied, because the capability host locks them ("Connection is in use by the workspace capability host"). Set automatically by scripts/preprovision.')
+param capabilityHostExists bool = false
+
 resource searchService 'Microsoft.Search/searchServices@2024-06-01-preview' existing = {
   name: aiSearchName
   scope: resourceGroup(aiSearchServiceSubscriptionId, aiSearchServiceResourceGroupName)
@@ -46,7 +49,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     displayName: displayName
   }
 
-  resource project_connection_cosmosdb_account 'connections@2025-04-01-preview' = {
+  resource project_connection_cosmosdb_account 'connections@2025-04-01-preview' = if (!capabilityHostExists) {
     name: cosmosDBName
     properties: {
       category: 'CosmosDB'
@@ -60,7 +63,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource project_connection_azure_storage 'connections@2025-04-01-preview' = {
+  resource project_connection_azure_storage 'connections@2025-04-01-preview' = if (!capabilityHostExists) {
     name: azureStorageName
     properties: {
       category: 'AzureStorageAccount'
@@ -74,7 +77,7 @@ resource project 'Microsoft.CognitiveServices/accounts/projects@2025-04-01-previ
     }
   }
 
-  resource project_connection_azureai_search 'connections@2025-04-01-preview' = {
+  resource project_connection_azureai_search 'connections@2025-04-01-preview' = if (!capabilityHostExists) {
     name: aiSearchName
     properties: {
       category: 'CognitiveSearch'

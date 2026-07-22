@@ -496,8 +496,15 @@ resource "time_sleep" "wait_project_identities" {
   create_duration = "10s"
 }
 
-## Project-level connections (AAD auth)
+## Project-level connections (AAD auth).
+## Gated on capability_host_exists — once the capability host is created,
+## these connections are locked ("Connection is in use by the workspace
+## capability host and cannot be modified or deleted") and re-applying them
+## fails. On first apply the count is 1 and they're created; on re-apply the
+## preprovision hook sets capability_host_exists=true and count becomes 0
+## so Terraform leaves the existing connections in place.
 resource "azapi_resource" "conn_cosmosdb" {
+  count                     = var.capability_host_exists ? 0 : 1
   depends_on                = [azapi_resource.ai_project]
   type                      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
   name                      = local.cosmos_name
@@ -520,6 +527,7 @@ resource "azapi_resource" "conn_cosmosdb" {
 }
 
 resource "azapi_resource" "conn_storage" {
+  count                     = var.capability_host_exists ? 0 : 1
   depends_on                = [azapi_resource.ai_project]
   type                      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
   name                      = local.storage_name
@@ -542,6 +550,7 @@ resource "azapi_resource" "conn_storage" {
 }
 
 resource "azapi_resource" "conn_aisearch" {
+  count                     = var.capability_host_exists ? 0 : 1
   depends_on                = [azapi_resource.ai_project]
   type                      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
   name                      = local.search_name
@@ -611,7 +620,11 @@ resource "time_sleep" "wait_rbac" {
 ## add-project-capability-host.bicep. Once this exists, the Foundry project
 ## can host agents that read/write threads/blobs/vectors via the connections
 ## configured above.
+##
+## Gated on capability_host_exists (same reason as the connections above):
+## the capability host cannot be re-applied idempotently once it exists.
 resource "azapi_resource" "ai_foundry_project_capability_host" {
+  count = var.capability_host_exists ? 0 : 1
   depends_on = [
     azapi_resource.conn_cosmosdb,
     azapi_resource.conn_storage,

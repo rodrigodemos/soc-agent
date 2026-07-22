@@ -237,6 +237,14 @@ variable "mcp_http_server_image_tag" {
   default     = "latest"
 }
 
+########## Idempotency ##########
+
+variable "capability_host_exists" {
+  description = "True when the project capability host already exists. Set automatically by scripts/preprovision so that re-running `azd provision` (or `terraform apply`) does not re-apply the project connections (locked by the existing capability host) or the capability host itself. Leave false on first deploy."
+  type        = bool
+  default     = false
+}
+
 ########## Tags ##########
 
 variable "tags" {
