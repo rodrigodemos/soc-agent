@@ -15,13 +15,29 @@ output "AZURE_RESOURCE_GROUP" {
 }
 
 ########## Foundry ##########
+## AZURE_AI_ACCOUNT_ID and AZURE_AI_PROJECT_ID are the ARM resource IDs consumed
+## by the `azure.ai.agents` azd extension at `azd deploy` time to register the
+## hosted agent with the correct project. AZURE_AI_FOUNDRY_PROJECT_ID is a
+## legacy alias — some tooling reads that name instead.
 
 output "AZURE_AI_ACCOUNT_NAME" {
   value = azapi_resource.ai_foundry.name
 }
 
+output "AZURE_AI_ACCOUNT_ID" {
+  value = azapi_resource.ai_foundry.id
+}
+
 output "AZURE_AI_PROJECT_NAME" {
   value = azapi_resource.ai_project.name
+}
+
+output "AZURE_AI_PROJECT_ID" {
+  value = azapi_resource.ai_project.id
+}
+
+output "AZURE_AI_FOUNDRY_PROJECT_ID" {
+  value = azapi_resource.ai_project.id
 }
 
 output "AZURE_AI_PROJECT_ENDPOINT" {

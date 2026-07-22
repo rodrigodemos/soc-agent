@@ -91,6 +91,9 @@ param projectDisplayName string = 'soc-copilot project'
 @description('Name of the project capability host.')
 param projectCapHost string = 'caphostproj'
 
+@description('True when the project capability host already exists (set by scripts/preprovision). When true, the project connections and the capability host are NOT re-applied — the connections are locked by the existing capability host, so re-applying them fails. This makes `azd provision` idempotent on re-runs.')
+param capabilityHostExists bool = false
+
 // ── Derived names ───────────────────────────────────────────────────────────
 //
 // Each name uses the override when provided; otherwise it falls back to the
@@ -276,6 +279,7 @@ module aiProject 'modules/ai/ai-project-identity.bicep' = {
     azureStorageSubscriptionId: aiDependencies.outputs.azureStorageSubscriptionId
     azureStorageResourceGroupName: aiDependencies.outputs.azureStorageResourceGroupName
     accountName: aiAccount.outputs.accountName
+    capabilityHostExists: capabilityHostExists
   }
   dependsOn: [
     privateEndpointAndDNS
@@ -325,7 +329,7 @@ module aiSearchRoleAssignments 'modules/roles/ai-search-role-assignments.bicep' 
   ]
 }
 
-module addProjectCapabilityHost 'modules/ai/add-project-capability-host.bicep' = {
+module addProjectCapabilityHost 'modules/ai/add-project-capability-host.bicep' = if (!capabilityHostExists) {
   name: 'capabilityHost-configuration-${uniqueSuffix}-deployment'
   params: {
     accountName: aiAccount.outputs.accountName
@@ -413,7 +417,9 @@ module mcpHttpServer 'modules/tools/mcp-http-server.bicep' = if (enableMcpHttpSe
 // ── Outputs (consumed by main.bicep) ────────────────────────────────────────
 
 output aiAccountName string = aiAccount.outputs.accountName
+output aiAccountId string = aiAccount.outputs.accountID
 output aiProjectName string = aiProject.outputs.projectName
+output aiProjectId string = aiProject.outputs.projectId
 output aiProjectEndpoint string = 'https://${aiAccount.outputs.accountName}.services.ai.azure.com/api/projects/${aiProject.outputs.projectName}'
 output modelDeploymentName string = modelName
 

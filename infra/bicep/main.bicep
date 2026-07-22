@@ -205,6 +205,11 @@ param enableMcpHttpServer bool = true
 @description('Container image tag for the MCP HTTP server. azd manages this via `azd deploy mcp-http-server`; leave at default for first-time bootstrap.')
 param mcpHttpServerImageTag string = 'latest'
 
+// ── Idempotency ─────────────────────────────────────────────────────────────
+
+@description('True when the project capability host already exists. Set automatically by scripts/preprovision so that re-running `azd provision` does not re-apply the project connections (which the capability host locks) or the capability host itself.')
+param capabilityHostExists bool = false
+
 // ── Tags ────────────────────────────────────────────────────────────────────
 
 var tags = {
@@ -269,6 +274,8 @@ module workload 'resources.bicep' = {
 
     enableMcpHttpServer: enableMcpHttpServer
     mcpHttpServerImageTag: mcpHttpServerImageTag
+
+    capabilityHostExists: capabilityHostExists
   }
 }
 
@@ -279,8 +286,15 @@ output AZURE_TENANT_ID string = subscription().tenantId
 output AZURE_RESOURCE_GROUP string = rg.name
 
 // Foundry
+// AZURE_AI_ACCOUNT_ID and AZURE_AI_PROJECT_ID are ARM resource IDs and are
+// consumed by the `azure.ai.agents` azd extension at `azd deploy` time to
+// register the hosted agent with the correct project. AZURE_AI_FOUNDRY_PROJECT_ID
+// is a legacy alias — some tooling reads that name instead.
 output AZURE_AI_ACCOUNT_NAME string = workload.outputs.aiAccountName
+output AZURE_AI_ACCOUNT_ID string = workload.outputs.aiAccountId
 output AZURE_AI_PROJECT_NAME string = workload.outputs.aiProjectName
+output AZURE_AI_PROJECT_ID string = workload.outputs.aiProjectId
+output AZURE_AI_FOUNDRY_PROJECT_ID string = workload.outputs.aiProjectId
 output AZURE_AI_PROJECT_ENDPOINT string = workload.outputs.aiProjectEndpoint
 output FOUNDRY_PROJECT_ENDPOINT string = workload.outputs.aiProjectEndpoint
 output AZURE_AI_MODEL_DEPLOYMENT_NAME string = workload.outputs.modelDeploymentName
